@@ -1,0 +1,524 @@
+/*
+ * Monochrome theme, dark by default (not system-dependent — the whole
+ * site is meant to read as black, at the user's explicit direction, not
+ * "black for users whose OS happens to prefer dark"). The brand accent IS
+ * the ink color (pure black/white), not a hue — buttons, links and the
+ * wordmark all read as grayscale. warn/bad/info stay semantically colored
+ * (dashboard status badges, form errors) since those carry information,
+ * not decoration — see frontend-design-guidelines: "semantic colors for
+ * semantic meaning only." The coin logo graphic is the one deliberate
+ * exception and keeps its source colors (USDC blue, Arc navy) untouched;
+ * the nav's lime logo badge is a second, scoped one (see .nav-pill
+ * .logo-mark below).
+ *
+ * --accent/--accent-ink stay light-on-dark here (not literal black-on-
+ * black) so accented surfaces — the nav pill, primary buttons — remain
+ * readable against the page; a black element on a black page has no
+ * contrast at all. This is the same token pair the previous light theme
+ * used, just inverted, so every component built against it (nav, buttons,
+ * badges) needed no changes to render correctly here.
+ */
+:root {
+  --bg: #09090b;
+  --surface: #18181b;
+  --surface-2: #212124;
+  --ink: #f4f4f5;
+  --muted: #a1a1aa;
+  --line: #2a2a2e;
+  --accent: #f4f4f5;
+  --accent-ink: #09090b;
+  --accent-soft: #212124;
+  --warn: #f0b757;
+  --warn-soft: #382a10;
+  --bad: #f28b82;
+  --bad-soft: #3a1917;
+  --info: #8ab4f8;
+  --info-soft: #172640;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { font-size: 24px; line-height: 1.2; margin: 0 0 4px; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 16px; margin: 0 0 12px; }
+p { margin: 0 0 12px; }
+code, .mono { font-family: var(--mono); font-size: 0.9em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.right { text-align: right; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.row.between { justify-content: space-between; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Buttons & fields ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer;
+  transition: background 0.12s ease, filter 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
+}
+.btn:hover { background: var(--surface-2); border-color: var(--muted); text-decoration: none; }
+.btn:active { transform: scale(0.97); filter: brightness(0.94); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { background: var(--accent); filter: brightness(1.08); border-color: var(--accent); }
+.btn-danger { color: var(--bad); }
+.btn-sm { padding: 5px 10px; font-size: 13px; }
+.btn-block { width: 100%; }
+
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.field label { font-weight: 600; font-size: 13px; }
+.field .hint { color: var(--muted); font-size: 12.5px; }
+input[type="text"], input[type="email"], input[type="password"], input[type="url"], select {
+  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: inherit;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+input:disabled { opacity: 0.6; }
+input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="url"]:focus, select:focus {
+  outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+}
+
+.alert { padding: 10px 12px; border-radius: 8px; font-size: 14px; margin-bottom: 14px; }
+.alert-bad { background: var(--bad-soft); color: var(--bad); }
+.alert-ok { background: var(--accent-soft); color: var(--accent); }
+.alert-warn { background: var(--warn-soft); color: var(--warn); }
+
+/* ── Cards, tables, badges ──
+ * Flat dark-on-dark (a border alone) reads as almost no separation from
+ * the page — the shadow here is a soft, blurred dark falloff plus a
+ * hairline top highlight (the classic dark-UI "edge catching light" cue —
+ * Linear/Vercel/GitHub dark mode all use this), not a literal drop-shadow,
+ * since a plain black shadow on a near-black page is invisible (same issue
+ * the hero coin's old shadow had — see .coin-img above). */
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px;
+  box-shadow: 0 1px 0 0 color-mix(in srgb, var(--ink) 6%, transparent) inset, 0 20px 40px -24px rgba(0, 0, 0, 0.6);
+}
+.card + .card { margin-top: 16px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.empty { padding: 32px 12px; text-align: center; color: var(--muted); }
+
+.badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.badge-settled { background: var(--accent-soft); color: var(--accent); }
+.badge-awaiting_payment { background: var(--info-soft); color: var(--info); }
+.badge-settling { background: var(--warn-soft); color: var(--warn); }
+.badge-expired { background: var(--surface-2); color: var(--muted); }
+.badge-failed { background: var(--bad-soft); color: var(--bad); }
+.badge-revoked { background: var(--surface-2); color: var(--muted); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.stat .label { color: var(--muted); font-size: 13px; }
+.stat .value { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+pre.snippet { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px; overflow-x: auto; font: 13px/1.55 var(--mono); margin: 0; }
+
+/* ── App shell ── */
+.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.sidebar { background: var(--surface); border-right: 1px solid var(--line); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; letter-spacing: -0.02em; padding: 0 10px 16px; }
+.brand span { color: var(--muted); font-weight: 500; }
+.nav a { display: block; padding: 8px 10px; border-radius: 8px; color: var(--ink); font-weight: 500; }
+.nav a:hover { background: var(--surface-2); text-decoration: none; }
+.nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.sidebar .foot { margin-top: auto; padding: 12px 10px 0; border-top: 1px solid var(--line); }
+.content { padding: 28px clamp(16px, 4vw, 40px); max-width: 1080px; width: 100%; }
+.page-head { margin-bottom: 20px; }
+
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { flex-direction: row; flex-wrap: wrap; align-items: center; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 12px; }
+  .brand { padding: 0 8px 0 0; }
+  .sidebar .foot { margin: 0 0 0 auto; padding: 0; border: 0; }
+}
+
+/* ── Auth ── */
+.center-page { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+.auth-card { width: 100%; max-width: 420px; }
+
+/* ── Marketing site chrome ──
+ * A floating pill navbar, inset from the viewport edges rather than a
+ * full-width bar — .site-header is just the sticky positioning shell
+ * (transparent, no border/blur of its own); .nav-pill is the actual
+ * visual capsule. Uses --accent/--accent-ink (already an inverting pair
+ * between light/dark mode) so the pill is dark-on-light in light mode and
+ * light-on-dark in dark mode, same contrast relationship either way. */
+.site-header {
+  position: sticky; top: 0; z-index: 20;
+  padding: 16px clamp(16px, 4vw, 40px);
+}
+.nav-pill {
+  max-width: 1280px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 6px 8px 6px 18px;
+  border-radius: 999px;
+  /* Explicit black, not the theme's inverting --accent token — the user
+   * wants the bar itself black regardless of theme, at their direction.
+   * A hairline light border (not --line, too dark to read here) gives it
+   * definition against the equally-black page. */
+  background: #0a0a0a; border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  --nav-ink: #ffffff;
+}
+.site-header .wordmark { font-weight: 800; font-size: 15.5px; letter-spacing: -0.02em; color: var(--nav-ink); display: flex; align-items: center; gap: 10px; }
+.site-header .wordmark span { opacity: 0.7; font-weight: 500; }
+/* Lime badge for the nav logo mark — a second deliberate, scoped exception
+ * to the site's monochrome system (the first is the coin graphic; see this
+ * file's header comment), used only here, at the user's explicit direction.
+ * The bolt PNG itself is a thin pale stroke (see Logo.tsx) that reads as a
+ * soft mark on any background, same as it did on the previous white badge. */
+.nav-pill .logo-mark {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: #c6f135;
+}
+/* The source PNG is a thin pale-indigo outline — illegible on green as-is,
+ * so it's forced to solid dark here (shape/alpha preserved, source hue
+ * dropped) purely for contrast on this one badge. */
+.nav-pill .logo-mark img { filter: brightness(0) saturate(100%); opacity: 0.82; }
+.site-nav { display: flex; align-items: center; gap: 28px; }
+.site-nav a:not(.btn) { color: var(--nav-ink); font-weight: 500; font-size: 14.5px; }
+.site-nav a:not(.btn):hover { opacity: 0.75; text-decoration: none; }
+.site-nav .actions { display: flex; align-items: center; gap: 6px; }
+/* Ghost style for the secondary action ("Sign in") against the dark pill —
+ * the solid .nav-cta group below carries the visual weight instead. */
+.nav-pill .btn:not(.btn-primary) {
+  background: transparent; color: var(--nav-ink);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.nav-pill .btn:not(.btn-primary):hover { background: rgba(255, 255, 255, 0.1); }
+/* The CTA reads as two separate rounded pieces sitting close together (text
+ * pill + a plain circular arrow cap beside it) rather than one fused shape —
+ * matching the reference exactly, at the user's explicit direction. .nav-cta-
+ * group is the single clickable Link (unstyled flex container with a real
+ * gap, so page background shows through between the two pieces); its two
+ * children are independently rounded, a shade lighter than the black bar
+ * (not the same literal black) so they read as distinct pieces, not just
+ * a border outline on an otherwise invisible fill. */
+.nav-cta-group {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.nav-cta-group:hover { text-decoration: none; }
+.nav-cta {
+  padding: 10px 18px; border-radius: 999px; font-weight: 600; font-size: 14.5px;
+  background: #1c1c1e; color: var(--nav-ink);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.nav-cta-arrow {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: #1c1c1e; color: var(--nav-ink);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.nav-cta-group:hover .nav-cta,
+.nav-cta-group:hover .nav-cta-arrow {
+  background: #262628;
+}
+.nav-toggle { display: none; }
+
+.site-main { max-width: 1280px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
+.site-footer { border-top: 1px solid var(--line); margin-top: 96px; }
+.site-footer-inner {
+  max-width: 1280px; margin: 0 auto; padding: 40px clamp(16px, 4vw, 40px);
+  display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between;
+}
+.footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
+.footer-links a { color: var(--muted); font-size: 14px; }
+.footer-links a:hover { color: var(--ink); }
+
+/* ── Hero ──
+ * .hero-stage hosts the spotlight/grid/glow layers directly on the page
+ * background (--bg) — no card box around the content, at the user's
+ * explicit direction. --mx/--my are set by HeroSpotlight.tsx on pointer
+ * move; they default to the stage's own center so the glow renders
+ * sensibly before the first pointer event (and stays exactly there for
+ * touch/keyboard-only visitors, which is fine — it's decorative, not
+ * information). */
+.hero-stage {
+  position: relative; overflow: hidden; isolation: isolate;
+  --mx: 50%; --my: 40%;
+}
+.hero-spotlight {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(480px circle at var(--mx) var(--my), color-mix(in srgb, var(--ink) 10%, transparent), transparent 70%);
+}
+.hero-grid {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-image: radial-gradient(circle, var(--line) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 90%);
+}
+.hero-glow-lime {
+  position: absolute; z-index: 0; pointer-events: none;
+  width: 420px; height: 420px; right: -140px; top: -120px; border-radius: 50%;
+  background: #c6f135; opacity: 0.16; filter: blur(110px);
+}
+.hero-stage > .hero { position: relative; z-index: 1; }
+.hero {
+  display: grid; grid-template-columns: 1fr; gap: 48px; align-items: center;
+  padding: 64px 0 56px; text-align: center;
+}
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px; align-self: center;
+  padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 0 auto 20px;
+  background: var(--surface);
+}
+.eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+.hero h1 {
+  font-family: var(--font-display), inherit;
+  font-size: clamp(34px, 5.5vw, 60px); line-height: 1.08; letter-spacing: -0.03em;
+  margin: 0 0 18px; text-wrap: balance;
+  background: linear-gradient(180deg, var(--ink), color-mix(in srgb, var(--ink) 45%, transparent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero-sub {
+  font-size: clamp(16px, 2vw, 19px); color: var(--muted); max-width: 60ch; margin: 0 auto 32px;
+  line-height: 1.6;
+}
+.hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+.hero-cta .btn { padding: 12px 22px; font-size: 15px; }
+.hero-note { font-size: 13px; color: var(--muted); }
+.hero-visual { display: flex; justify-content: center; padding: 16px 0 8px; }
+
+@media (min-width: 900px) {
+  .hero { text-align: left; grid-template-columns: 1.05fr 0.95fr; padding: 96px 0 80px; gap: 32px; }
+  .eyebrow, .hero-cta { justify-content: flex-start; margin-left: 0; margin-right: auto; }
+  .hero-sub { margin-left: 0; }
+  .hero-visual { padding: 0; }
+}
+
+/* ── 3D coin (pre-rendered image, floats — no spin) ──
+ * A dark drop-shadow/floor-shadow (this component's original treatment)
+ * reads as nothing against a permanently dark page — there's no light
+ * surface underneath it to cast onto. Ambient light glow instead, fitting
+ * the hero's own spotlight/glow treatment. */
+.coin-float-wrap { width: clamp(240px, 32vw, 380px); position: relative; }
+.coin-float-wrap::before {
+  content: ""; position: absolute; inset: -20%; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--ink) 22%, transparent), transparent 72%);
+  filter: blur(24px);
+}
+.coin-float { animation: coin-bob 4.5s ease-in-out infinite; }
+.coin-img { width: 100%; height: auto; display: block; filter: drop-shadow(0 8px 40px color-mix(in srgb, var(--ink) 25%, transparent)); }
+.coin-shadow {
+  width: clamp(140px, 20vw, 220px); height: 22px; margin: 4px auto 0; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--ink) 18%, transparent), transparent 75%);
+  animation: coin-shadow-pulse 4.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes coin-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
+  }
+  @keyframes coin-shadow-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(0.85); opacity: 0.7; }
+  }
+}
+
+/* ── Sections ── */
+.section { padding: 72px 0; border-top: 1px solid var(--line); }
+.section-head { max-width: 640px; margin: 0 auto 40px; text-align: center; }
+.section-head h2 { font-family: var(--font-display), inherit; font-size: clamp(24px, 3vw, 32px); letter-spacing: -0.02em; margin-bottom: 10px; }
+.section-head p { color: var(--muted); font-size: 16px; margin: 0; }
+
+.tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.tool-card {
+  display: block; position: relative; overflow: hidden;
+  padding: 32px 28px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); color: inherit;
+}
+.tool-card::before {
+  content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity 0.2s ease;
+  background: radial-gradient(320px circle at 85% -10%, color-mix(in srgb, #c6f135 14%, transparent), transparent 70%);
+}
+.tool-card:hover { border-color: var(--muted); text-decoration: none; }
+.tool-card:hover::before { opacity: 1; }
+.tool-tagline {
+  display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px; position: relative;
+}
+.tool-card h3 { font-family: var(--font-display), inherit; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 10px; position: relative; }
+.tool-card p { color: var(--muted); font-size: 14.5px; line-height: 1.6; margin: 0 0 20px; position: relative; }
+.tool-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink); position: relative; }
+.tool-card:hover .tool-link { text-decoration: underline; }
+
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.feature-card { background: var(--surface); padding: 28px 24px; }
+.feature-card .icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; background: var(--surface-2); margin-bottom: 16px; }
+.feature-card h3 { font-size: 16px; margin: 0 0 6px; letter-spacing: -0.01em; }
+.feature-card p { font-size: 14px; color: var(--muted); margin: 0; line-height: 1.55; }
+
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px; counter-reset: step; }
+.step { position: relative; padding-left: 44px; }
+.step::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 13px;
+  display: grid; place-items: center;
+}
+.step h3 { font-size: 15.5px; margin: 0 0 6px; }
+.step p { font-size: 14px; color: var(--muted); margin: 0; line-height: 1.55; }
+
+.code-panel { max-width: 720px; margin: 0 auto; }
+.code-panel .snippet { font-size: 13.5px; }
+
+.cta-band { text-align: center; padding: 72px 0; }
+.cta-band h2 { font-family: var(--font-display), inherit; font-size: clamp(24px, 3vw, 34px); letter-spacing: -0.02em; margin-bottom: 12px; }
+.cta-band p { color: var(--muted); margin-bottom: 28px; }
+
+/* ── Docs ── */
+.docs-content { max-width: 720px; }
+.docs-content h1 { font-size: 30px; letter-spacing: -0.02em; margin-bottom: 8px; }
+.docs-content > p:first-of-type { color: var(--muted); font-size: 16px; margin-bottom: 32px; }
+.docs-content h2 { font-size: 19px; letter-spacing: -0.01em; margin: 36px 0 12px; padding-top: 4px; }
+.docs-content h2:first-child { margin-top: 0; }
+.docs-content h3 { font-size: 15.5px; margin: 24px 0 8px; }
+.docs-content p { color: var(--ink); font-size: 14.5px; line-height: 1.7; margin: 0 0 14px; }
+.docs-content ul, .docs-content ol { margin: 0 0 14px; padding-left: 22px; font-size: 14.5px; line-height: 1.7; }
+.docs-content li { margin-bottom: 4px; }
+.docs-content pre.snippet { margin: 0 0 18px; }
+.docs-content code:not(.snippet code) { background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-size: 0.88em; }
+.docs-content table { margin-bottom: 18px; }
+.docs-callout { display: flex; gap: 10px; padding: 12px 14px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13.5px; margin-bottom: 18px; }
+.docs-nav-group { margin-bottom: 18px; }
+.docs-nav-group .group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; padding: 0 10px; margin-bottom: 6px; }
+.docs-pager { display: flex; justify-content: space-between; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); gap: 16px; }
+.docs-pager a { border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; font-size: 13.5px; max-width: 260px; }
+.docs-pager a:hover { border-color: var(--muted); text-decoration: none; }
+.docs-pager .dir { display: block; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+.docs-pager .next { margin-left: auto; text-align: right; }
+
+.nav-toggle {
+  display: none; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: #1c1c1e; border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff; cursor: pointer;
+}
+.mobile-nav-panel {
+  display: none; position: fixed; inset: 86px 0 0 0; z-index: 19;
+  background: var(--bg); padding: 8px clamp(16px, 4vw, 40px) 24px;
+  overflow-y: auto;
+}
+.mobile-nav-panel.open { display: block; }
+.mobile-nav-panel a:not(.btn) {
+  display: block; padding: 14px 4px; font-size: 17px; font-weight: 600; color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.mobile-nav-panel .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.mobile-nav-panel .actions .btn { width: 100%; padding: 12px; }
+
+@media (max-width: 760px) {
+  .site-nav .links, .site-nav .actions { display: none; }
+  .nav-toggle { display: inline-flex; }
+  .nav-pill { padding: 6px 6px 6px 16px; }
+}
+@media (min-width: 761px) {
+  .mobile-nav-panel { display: none !important; }
+}
+
+/* ── Checkout ── */
+.checkout {
+  width: 100%; max-width: 440px;
+  box-shadow: 0 1px 0 0 color-mix(in srgb, var(--ink) 6%, transparent) inset, 0 32px 64px -28px rgba(0, 0, 0, 0.7);
+}
+.checkout .head { text-align: center; padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.checkout .merchant { color: var(--muted); font-size: 14px; }
+.checkout .amount { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin: 4px 0 8px; }
+.checkout .amount small { font-size: 18px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+.expiry { color: var(--muted); margin: 0; font-variant-numeric: tabular-nums; }
+.expiry-low { color: var(--warn); font-weight: 600; }
+.tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; margin-bottom: 16px; }
+.tabs button {
+  border: 0; background: transparent; color: var(--muted); padding: 9px 6px; border-radius: 7px;
+  font: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.tabs button:hover[aria-selected="false"] { color: var(--ink); }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.qr-box { display: grid; place-items: center; gap: 12px; padding: 8px 0; text-align: center; }
+.qr-box svg { background: #fff; padding: 10px; border-radius: 10px; }
+.addr { display: flex; gap: 8px; align-items: center; background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+.addr code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.qr-fallback { margin-top: 14px; text-align: center; }
+.link-btn { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 6px; }
+.link-btn:hover { color: var(--ink); }
+.pay-options { display: grid; gap: 8px; margin: 12px 0; }
+.pay-options label { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.pay-options label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.result { text-align: center; padding: 12px 0; }
+.result .icon { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 12px; }
+.result .icon.ok { background: var(--accent-soft); color: var(--accent); }
+.result .icon.muted { background: var(--surface-2); color: var(--muted); }
+.result .icon.bad { background: var(--bad-soft); color: var(--bad); }
+.wallet-adapter-button { font-family: inherit !important; }
+.powered { text-align: center; margin-top: 14px; color: var(--muted); font-size: 12.5px; }
+
+/* Skeleton (loading state) — a shimmering placeholder matching the real
+ * card's shape, so the layout doesn't jump once content arrives. */
+.skel { background: var(--surface-2); border-radius: 4px; }
+@media (prefers-reduced-motion: no-preference) {
+  .btn { transition: background .12s, filter .12s; }
+  .skel {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: skel-shimmer 1.6s ease-in-out infinite;
+  }
+  @keyframes skel-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .result .icon.spin svg { animation: icon-spin 1s linear infinite; }
+  @keyframes icon-spin { to { transform: rotate(360deg); } }
+}
+
+/* ── Landing-page live demo ── */
+.demo-widget { max-width: 560px; margin: 0 auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+.demo-widget-presets { display: flex; gap: 8px; margin-bottom: 14px; }
+.chip {
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-weight: 600;
+  font-size: 13.5px; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+}
+.chip:hover { border-color: var(--ink); }
+.chip-active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.demo-widget-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.demo-widget-row label { display: block; margin-bottom: 6px; }
+.demo-widget-input {
+  display: flex; align-items: center; gap: 6px; padding: 9px 12px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--bg); min-width: 120px;
+}
+.demo-widget-input span { color: var(--muted); }
+.demo-widget-input input { border: 0; background: transparent; font: inherit; font-variant-numeric: tabular-nums; width: 80px; color: var(--ink); }
+.demo-widget-input input:focus { outline: none; }
+.demo-widget-input:focus-within { border-color: var(--ink); }
+
+.demo-modal-overlay {
+  position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.5);
+  display: grid; place-items: center; padding: 16px;
+}
+.demo-modal { position: relative; width: min(420px, 100%); height: min(680px, 90vh); background: var(--surface); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
+.demo-modal iframe { width: 100%; height: 100%; border: 0; display: block; }
+.demo-modal-close {
+  position: absolute; top: 10px; right: 10px; z-index: 1; width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); display: grid; place-items: center; cursor: pointer;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .demo-modal-overlay { animation: demo-fade-in 150ms ease-out; }
+  .demo-modal { animation: demo-scale-in 200ms ease-out; }
+}
+@keyframes demo-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes demo-scale-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
