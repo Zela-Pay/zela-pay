@@ -1,24 +1,32 @@
 /**
- * Firebase Auth verification for merchant signup/login (email/password +
- * Google — see routes/auth.ts). Lazily initialized so a deployment/test
- * environment that never sets FIREBASE_SERVICE_ACCOUNT_JSON (the plain-
- * password auth path doesn't need it) never pays an import-time cost or
- * throws at boot for a feature it isn't using.
+ * Firebase Auth verification for merchant signup/login.
  */
 
 import { initializeApp, cert, getApps, type App } from "firebase-admin/app";
+
 import { getAuth } from "firebase-admin/auth";
+
 import { env } from "../config/env.js";
 
 let app: App | null = null;
 
 function getFirebaseApp(): App {
-  if (app) return app;
-  if (!env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON is not configured — Firebase sign-in is unavailable");
+  if (app) {
+    return app;
   }
+
+  if (!env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON is not configured");
+  }
+
   const existing = getApps()[0];
-  app = existing ?? initializeApp({ credential: cert(JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON)) });
+
+  app =
+    existing ??
+    initializeApp({
+      credential: cert(JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON)),
+    });
+
   return app;
 }
 
@@ -29,13 +37,39 @@ export interface VerifiedFirebaseUser {
   name: string | null;
 }
 
-/** Verifies a client-obtained Firebase ID token; throws if invalid/expired. */
-export async function verifyFirebaseIdToken(idToken: string): Promise<VerifiedFirebaseUser> {
-  const decoded = await getAuth(getFirebaseApp()).verifyIdToken(idToken);
-  return {
-    uid: decoded.uid,
-    email: decoded.email ?? null,
-    emailVerified: decoded.email_verified ?? false,
-    name: typeof decoded.name === "string" ? decoded.name : null,
-  };
+export async function verifyFirebaseIdToken(
+  idToken: string,
+): Promise<VerifiedFirebaseUser> {
+  console.log("[Firebase] Starting token verification...");
+
+  let firebaseApp: App;
+
+  try {
+    firebaseApp = getFirebaseApp();
+
+    console.log("[Firebase] Admin initialized");
+  } catch (error) {
+    console.error("[Firebase] Admin initialization failed:", error);
+
+    throw error;
+  }
+
+  try {
+    console.log("[Firebase] Calling verifyIdToken...");
+
+    const decoded = await getAuth(firebaseApp).verifyIdToken(idToken);
+
+    console.log("[Firebase] Token verified:", decoded.uid);
+
+    return {
+      uid: decoded.uid,
+      email: decoded.email ?? null,
+      emailVerified: decoded.email_verified ?? false,
+      name: typeof decoded.name === "string" ? decoded.name : null,
+    };
+  } catch (error) {
+    console.error("[Firebase] Token verification failed:", error);
+
+    throw error;
+  }
 }
