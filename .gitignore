@@ -11,3 +11,6 @@ out/
 npm-debug.log*
 pnpm-debug.log*
 coverage/
+
+.npmrc
+packages/*/.npmrc

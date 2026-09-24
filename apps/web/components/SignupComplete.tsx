@@ -43,14 +43,22 @@ export function SignupComplete() {
     if (!user) return;
     setBusy(true);
     setError(null);
-    const form = Object.fromEntries(Array.from(new FormData(e.currentTarget).entries(), ([k, v]) => [k, String(v)]));
+    const form = Object.fromEntries(
+      Array.from(new FormData(e.currentTarget).entries(), ([k, v]) => [
+        k,
+        String(v),
+      ]),
+    );
     try {
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...form, idToken, settlementToken: "USDC" }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/v1/auth/signup`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...form, idToken, settlementToken: "USDC" }),
+        },
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "Something went wrong");
@@ -85,25 +93,51 @@ export function SignupComplete() {
             type="button"
             className="link-btn"
             style={{ padding: 0 }}
-            onClick={() => firebaseAuth && signOut(firebaseAuth).then(() => window.location.assign("/signup"))}
+            onClick={() =>
+              firebaseAuth &&
+              signOut(firebaseAuth).then(() =>
+                window.location.assign("/signup"),
+              )
+            }
           >
             Not you?
           </button>
         </p>
 
-        {error && <div className="alert alert-bad" role="alert">{error}</div>}
+        {error && (
+          <div className="alert alert-bad" role="alert">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={submit}>
           <div className="field">
             <label htmlFor="name">Business name</label>
-            <input id="name" name="name" type="text" required maxLength={100} autoComplete="organization" autoFocus />
+            <input
+              id="name"
+              name="name"
+              type="text"
+              required
+              maxLength={100}
+              autoComplete="organization"
+              autoFocus
+            />
           </div>
           <div className="field">
             <label htmlFor="settlementWallet">Payout address</label>
-            <input id="settlementWallet" name="settlementWallet" type="text" required spellCheck={false} autoComplete="off" placeholder="0x…" />
+            <input
+              id="settlementWallet"
+              name="settlementWallet"
+              type="text"
+              required
+              spellCheck={false}
+              autoComplete="off"
+              placeholder="0x…"
+            />
             <span className="hint">
-              Where we&rsquo;ll send your money. Double-check it: payouts can&rsquo;t be reversed, and changing it
-              later requires your password.
+              Where we&rsquo;ll send your money. Double-check it: payouts
+              can&rsquo;t be reversed, and changing it later requires your
+              password.
             </span>
           </div>
           <button className="btn btn-primary btn-block" disabled={busy}>
