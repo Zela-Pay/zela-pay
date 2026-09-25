@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
-      name: "ZelaCheckout",
+      name: "ZelaWidget",
       fileName: () => "zela-checkout.js",
       formats: ["iife"],
     },
