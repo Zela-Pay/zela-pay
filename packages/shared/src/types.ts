@@ -69,6 +69,13 @@ export interface CheckoutSession {
   cancelUrl: string | null;
   metadata: Record<string, string>;
 
+  // A human-readable reason the most recent settlement attempt didn't
+  // complete (e.g. a temporary RPC issue) — null once settled, or if no
+  // attempt has failed yet. Cleared automatically on the next successful
+  // attempt.
+  lastSettlementError: string | null;
+  lastSettlementErrorAt: string | null;
+
   createdAt: string;
   expiresAt: string;
 }

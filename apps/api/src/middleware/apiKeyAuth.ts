@@ -6,6 +6,8 @@ export interface AuthedRequest extends Request {
   merchantId?: string;
   /** Whether the authenticating key is a sandbox (sk_test_/pk_test_) or production (sk_live_/pk_live_) key. */
   isTest?: boolean;
+  /** Set by requireDashboardSession — the calling session's own token hash, so a session-management UI can mark "this device". */
+  sessionTokenHash?: string;
 }
 
 /**

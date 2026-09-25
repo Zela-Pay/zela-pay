@@ -38,7 +38,14 @@ export function SessionsTable({ sessions, showActions = false }: { sessions: Che
               <td className="num">
                 {formatAmount(s.amountSettlement)} {s.settlementToken}
               </td>
-              <td><StatusBadge status={s.status} /></td>
+              <td>
+                <StatusBadge status={s.status} />
+                {s.lastSettlementError && s.status !== "settled" && (
+                  <div className="small muted" style={{ marginTop: 4, maxWidth: 220 }} title={s.lastSettlementError}>
+                    ⚠ {s.lastSettlementError}
+                  </div>
+                )}
+              </td>
               <td className="small">
                 {s.settlementTxHash ? (
                   <a href={explorerTx(s.settlementTxHash, s.network)} target="_blank" rel="noreferrer" className="mono">

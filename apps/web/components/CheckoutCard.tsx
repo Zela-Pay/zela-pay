@@ -177,6 +177,13 @@ export function CheckoutCard({ sessionId }: { sessionId: string }) {
           </div>
         ) : (
           <>
+            {session.lastSettlementError && (
+              <div className="alert alert-bad" style={{ marginBottom: 16 }}>
+                <p className="small" style={{ margin: 0 }}>
+                  We saw your payment, but confirming it hit a snag: {session.lastSettlementError} We&rsquo;re retrying automatically — no action needed.
+                </p>
+              </div>
+            )}
             <div className="tabs" role="tablist">
               {TABS.map((t) => (
                 <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>

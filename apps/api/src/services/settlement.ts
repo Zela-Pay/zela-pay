@@ -36,6 +36,7 @@ import { TOKEN_DECIMALS, type ArcNetwork } from "@zela-checkout/shared";
 import { getPublicClient } from "../config/arcRpc.js";
 import { getFeePayer } from "./chain.js";
 import { sendUsdc, usdcBalanceOf } from "./usdcContract.js";
+import { humanizeChainError } from "./blockchainError.js";
 
 const DECIMALS = TOKEN_DECIMALS.USDC;
 
@@ -91,7 +92,13 @@ export async function estimateGasReserve(
   network: ArcNetwork,
   transfers: bigint,
 ): Promise<bigint> {
-  const gasPrice = await getPublicClient(network).getGasPrice();
+  let gasPrice: bigint;
+  try {
+    gasPrice = await getPublicClient(network).getGasPrice();
+  } catch (err) {
+    console.error(`[settlement] getGasPrice failed on ${network}:`, err);
+    throw new Error(humanizeChainError(err, "Couldn't estimate the network fee right now."));
+  }
 
   const nativeWeiCost =
     (gasPrice * TRANSFER_GAS_LIMIT * transfers * GAS_SAFETY_BPS) / 10_000n;
@@ -100,142 +107,72 @@ export async function estimateGasReserve(
 }
 
 /**
- * Settles a customer's gross checkout payment.
+ * Platform fee, calculated from the ORIGINAL checkout amount.
  *
- * The customer's payment is the gross amount:
+ * IMPORTANT: never calculate the fee from a live balance — the balance
+ * shrinks as legs of the sweep are sent, and the fee must stay fixed
+ * regardless of how the sweep is retried.
  *
- *   grossAmountRaw
- *
- * The platform fee is ALWAYS calculated from that gross amount.
- *
- * The merchant receives:
- *
- *   gross - platform fee - gas
- *
- * The platform receives:
- *
- *   platform fee
- *
- * Gas is paid by the deposit account from the same underlying
- * USDC balance.
+ * Example: 19.99 x 1% = 0.1999 USDC
  */
-export async function sweepToMerchant(params: {
-  network: ArcNetwork;
-  deposit: Account;
+export function calculatePlatformFee(
+  grossAmountRaw: bigint,
+  feeBps: number,
+): bigint {
+  return (grossAmountRaw * BigInt(feeBps)) / 10_000n;
+}
 
-  merchantWallet: `0x${string}`;
-
-  /**
-   * Actual USDC balance currently sitting in the deposit account.
-   */
-  balanceRaw: bigint;
-
-  /**
-   * Original checkout amount the customer was required to pay.
-   *
-   * IMPORTANT:
-   * This is used to calculate the platform fee.
-   * Do NOT calculate the fee from balanceRaw.
-   */
-  grossAmountRaw: bigint;
-
-  /**
-   * Estimated gas required for the settlement transfers,
-   * represented in ERC-20 USDC's 6-decimal units.
-   */
-  gasReserveRaw: bigint;
-
-  /**
-   * Platform fee in basis points.
-   *
-   * Example:
-   *   100 = 1%
-   */
-  feeBps: number;
-}): Promise<{
-  hash: `0x${string}`;
-  feeRaw: bigint;
-}> {
-  /**
-   * Calculate the platform fee from the ORIGINAL checkout amount.
-   *
-   * Example:
-   *
-   *   19.99 × 1% = 0.1999 USDC
-   */
-  const feeRaw = (params.grossAmountRaw * BigInt(params.feeBps)) / 10_000n;
-
-  /**
-   * Merchant gets the gross payment minus:
-   *
-   *   platform fee
-   *   gas
-   */
-  const merchantRaw = params.grossAmountRaw - feeRaw - params.gasReserveRaw;
-
-  if (merchantRaw < 0n) {
-    throw new Error(
-      "Payment is insufficient to cover platform fee and settlement gas",
-    );
+/**
+ * Sends the platform fee leg of a settlement.
+ *
+ * This is one of two independent legs (the other is
+ * `sweepRemainderToMerchant`). Each leg is safe to retry on its own:
+ * the caller is expected to persist the returned tx hash immediately
+ * so this leg is never re-sent once it has confirmed, even if the
+ * *other* leg fails afterward and the whole settlement is retried.
+ */
+export async function sendPlatformFee(
+  network: ArcNetwork,
+  deposit: Account,
+  feeRaw: bigint,
+): Promise<`0x${string}` | null> {
+  if (feeRaw <= 0n) {
+    return null;
   }
 
-  /**
-   * The settlement should never spend more USDC than is actually
-   * present in the deposit account.
-   *
-   * The required amount is:
-   *
-   *   merchant
-   * + platform fee
-   * + gas
-   *
-   * which equals the gross checkout amount.
-   */
-  const requiredRaw = merchantRaw + feeRaw + params.gasReserveRaw;
+  return sendUsdc(network, deposit, getFeePayer().address, feeRaw);
+}
 
-  if (params.balanceRaw < requiredRaw) {
-    throw new Error(
-      `Insufficient deposit balance for settlement: ` +
-        `balance=${rawToDecimal(params.balanceRaw)} USDC, ` +
-        `required=${rawToDecimal(requiredRaw)} USDC`,
-    );
-  }
-
-  /**
-   * Send the merchant's net amount first.
-   *
-   * This is:
-   *
-   *   gross - fee - gas
-   */
-  const merchantHash = await sendUsdc(
-    params.network,
-    params.deposit,
-    params.merchantWallet,
-    merchantRaw,
+/**
+ * Sends whatever USDC actually remains in the deposit account (minus a
+ * fresh gas reserve) to the merchant.
+ *
+ * Deliberately reads the balance live, right before sending, instead of
+ * accepting a pre-computed amount. That makes this leg self-correcting:
+ * if the platform-fee leg (or a prior gas estimate) used slightly more
+ * or less than predicted, the merchant still receives an accurate
+ * "whatever's left" figure instead of a stale one computed before that
+ * gas was actually spent.
+ */
+export async function sweepRemainderToMerchant(
+  network: ArcNetwork,
+  deposit: Account,
+  merchantWallet: `0x${string}`,
+): Promise<{ hash: `0x${string}`; amountRaw: bigint } | null> {
+  const currentBalanceRaw = await usdcBalance(
+    network,
+    deposit.address as `0x${string}`,
   );
 
-  /**
-   * Then send the platform fee to the fee payer.
-   */
-  if (feeRaw > 0n) {
-    await sendUsdc(
-      params.network,
-      params.deposit,
-      getFeePayer().address,
-      feeRaw,
-    );
+  const gasReserveRaw = await estimateGasReserve(network, 1n);
+
+  const amountRaw = currentBalanceRaw - gasReserveRaw;
+
+  if (amountRaw <= 0n) {
+    return null;
   }
 
-  /**
-   * Return the merchant transaction hash as the settlement
-   * transaction hash.
-   *
-   * The platform fee transaction is also confirmed by sendUsdc()
-   * before this function returns.
-   */
-  return {
-    hash: merchantHash,
-    feeRaw,
-  };
+  const hash = await sendUsdc(network, deposit, merchantWallet, amountRaw);
+
+  return { hash, amountRaw };
 }

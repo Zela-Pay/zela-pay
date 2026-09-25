@@ -118,17 +118,23 @@ export default async function Home() {
 
         <section className="section" aria-labelledby="demo-h">
           <div className="site-main">
-            <div className="section-head">
-              <h2 id="demo-h">Try it — this is the real product</h2>
-              <p>Pick an amount, hit go, and the actual hosted checkout opens — live, not a mockup.</p>
+            <div className="demo-section-inner hero-stage">
+              <div className="hero-grid" aria-hidden="true" />
+              <div className="demo-section-copy">
+                <span className="eyebrow"><span className="dot" aria-hidden="true" />Live demo</span>
+                <h2 id="demo-h">This is the real product — not a mockup</h2>
+                <p>Pick an amount, hit go, and the actual hosted checkout opens against a live session on Arc. Nothing here is staged.</p>
+              </div>
+              <div className="demo-widget-wrap">
+                <DemoWidget />
+              </div>
             </div>
-            <DemoWidget />
           </div>
         </section>
 
         <section className="section" aria-labelledby="features-h">
           <div className="site-main">
-            <div className="section-head">
+            <div className="section-head left">
               <h2 id="features-h">Everything a checkout needs</h2>
               <p>No token accounts, no swap routing, no reconciliation spreadsheets.</p>
             </div>
@@ -165,16 +171,36 @@ export default async function Home() {
 
         <section className="section" aria-labelledby="code-h">
           <div className="site-main">
-            <div className="section-head">
+            <div className="section-head left">
               <h2 id="code-h">Three lines to start</h2>
               <p>Server-side SDK, or a plain REST call — your choice.</p>
             </div>
-            <div className="code-panel">
-              <pre className="snippet">{`import { ZelaCheckoutClient } from "@zela-checkout/sdk";
+            <div className="code-section-inner">
+              <div className="code-window">
+                <div className="code-window-bar">
+                  <span className="code-window-dot" /><span className="code-window-dot" /><span className="code-window-dot" />
+                  <span className="code-window-name">checkout.ts</span>
+                </div>
+                <pre className="snippet">{`import { ZelaCheckoutClient } from "@zela-checkout/sdk";
 
 const client = new ZelaCheckoutClient({ secretKey: process.env.ZELA_SECRET_KEY! });
 const { checkoutUrl } = await client.sessions.create({ amount: "19.99" });
 // redirect your customer to checkoutUrl`}</pre>
+              </div>
+              <ul className="code-checklist">
+                <li>
+                  <span className="num">1</span>
+                  <div><strong>Create a session</strong><span>One call, an amount, done. No token accounts or chain plumbing to set up first.</span></div>
+                </li>
+                <li>
+                  <span className="num">2</span>
+                  <div><strong>Redirect your customer</strong><span>They land on a hosted page that already knows the amount and your webhook config.</span></div>
+                </li>
+                <li>
+                  <span className="num">3</span>
+                  <div><strong>Get paid</strong><span>A signed webhook fires the moment it settles — funds are already at your address.</span></div>
+                </li>
+              </ul>
             </div>
           </div>
         </section>

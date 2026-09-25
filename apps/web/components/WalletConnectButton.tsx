@@ -13,6 +13,7 @@ import { TOKEN_DECIMALS, type CheckoutSession } from "@zela-checkout/shared";
 import { arcMainnet, arcTestnet } from "../lib/wagmi";
 import { usdcAddress, USDC_TRANSFER_ABI } from "../lib/usdc";
 import { formatAmount } from "../lib/format";
+import { humanizeChainError } from "../lib/humanizeChainError";
 
 /**
  * In-browser wallet payment path.
@@ -73,7 +74,8 @@ export function WalletConnectButton({ session }: { session: CheckoutSession }) {
 
       setHash(txHash);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Payment failed");
+      console.error("[WalletConnectButton] payment failed:", err);
+      setError(humanizeChainError(err));
     }
   }
 

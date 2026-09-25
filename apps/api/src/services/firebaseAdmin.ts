@@ -35,6 +35,8 @@ export interface VerifiedFirebaseUser {
   email: string | null;
   emailVerified: boolean;
   name: string | null;
+  /** "google.com" | "password" | other Firebase provider id — used for login-audit labeling. */
+  provider: string | null;
 }
 
 export async function verifyFirebaseIdToken(
@@ -66,6 +68,7 @@ export async function verifyFirebaseIdToken(
       email: decoded.email ?? null,
       emailVerified: decoded.email_verified ?? false,
       name: typeof decoded.name === "string" ? decoded.name : null,
+      provider: (decoded.firebase as { sign_in_provider?: string } | undefined)?.sign_in_provider ?? null,
     };
   } catch (error) {
     console.error("[Firebase] Token verification failed:", error);

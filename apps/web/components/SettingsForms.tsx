@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { dashApi } from "./dashApi";
 import { CopyButton } from "./CopyButton";
 import { useSandboxMode } from "../lib/useSandboxMode";
+import { SecurityPanel } from "./SecurityPanel";
 
 interface Props {
   name: string;
@@ -140,7 +141,7 @@ export function SettingsForms(p: Props) {
         </form>
       </div>
 
-      <div className="card">
+      <div className="card card-sensitive">
         <h2>Payouts</h2>
         <p className="small muted">
           Money is sent to <span className="mono">{p.settlementWallet}</span> ({p.settlementToken}). Changing where
@@ -160,7 +161,7 @@ export function SettingsForms(p: Props) {
         </form>
       </div>
 
-      <div className="card">
+      <div className="card card-sensitive">
         <h2>Password</h2>
         <Notice n={password} />
         <form onSubmit={savePassword}>
@@ -176,6 +177,8 @@ export function SettingsForms(p: Props) {
           <button className="btn btn-primary">Change password</button>
         </form>
       </div>
+
+      <SecurityPanel />
     </>
   );
 }

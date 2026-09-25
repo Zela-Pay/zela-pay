@@ -15,6 +15,7 @@ import { ARC_USDC_ADDRESS_MAINNET, type ArcNetwork } from "@zela-checkout/shared
 import { env } from "../config/env.js";
 import { getPublicClient } from "../config/arcRpc.js";
 import { getWalletClient } from "./chain.js";
+import { humanizeChainError } from "./blockchainError.js";
 
 export function usdcAddress(network: ArcNetwork): `0x${string}` {
   if (network === "arc-mainnet") return ARC_USDC_ADDRESS_MAINNET as `0x${string}`;
@@ -46,26 +47,46 @@ const TRANSFER_ABI = [
 ] as const;
 
 export async function usdcBalanceOf(network: ArcNetwork, address: `0x${string}`): Promise<bigint> {
-  return getPublicClient(network).readContract({
-    address: usdcAddress(network),
-    abi: BALANCE_OF_ABI,
-    functionName: "balanceOf",
-    args: [address],
-  });
+  try {
+    return await getPublicClient(network).readContract({
+      address: usdcAddress(network),
+      abi: BALANCE_OF_ABI,
+      functionName: "balanceOf",
+      args: [address],
+    });
+  } catch (err) {
+    console.error(`[usdcContract] balanceOf failed for ${address} on ${network}:`, err);
+    throw new Error(humanizeChainError(err, "Couldn't check the account's USDC balance right now."));
+  }
 }
 
 /** Sends a USDC amount (raw 6-decimal units) via the ERC-20 transfer() call, confirmed before returning. */
 export async function sendUsdc(network: ArcNetwork, account: Account, to: `0x${string}`, amountRaw: bigint): Promise<`0x${string}`> {
   const client = getWalletClient(account, network);
-  const hash = await client.writeContract({
-    address: usdcAddress(network),
-    abi: TRANSFER_ABI,
-    functionName: "transfer",
-    args: [to, amountRaw],
-  });
-  const receipt = await getPublicClient(network).waitForTransactionReceipt({ hash });
+
+  let hash: `0x${string}`;
+  try {
+    hash = await client.writeContract({
+      address: usdcAddress(network),
+      abi: TRANSFER_ABI,
+      functionName: "transfer",
+      args: [to, amountRaw],
+    });
+  } catch (err) {
+    console.error(`[usdcContract] transfer() failed (${network}, to=${to}, amountRaw=${amountRaw}):`, err);
+    throw new Error(humanizeChainError(err, "Couldn't send this USDC transfer right now."));
+  }
+
+  let receipt;
+  try {
+    receipt = await getPublicClient(network).waitForTransactionReceipt({ hash });
+  } catch (err) {
+    console.error(`[usdcContract] waitForTransactionReceipt failed (hash: ${hash}):`, err);
+    throw new Error(humanizeChainError(err, `Sent the transfer (hash: ${hash}) but couldn't confirm it went through. Check the transaction hash before retrying.`));
+  }
+
   if (receipt.status !== "success") {
-    throw new Error(`USDC transfer reverted on-chain (hash: ${hash})`);
+    throw new Error(`This transfer was rejected on-chain (hash: ${hash}). The account's balance may have changed since the transfer was prepared.`);
   }
   return hash;
 }

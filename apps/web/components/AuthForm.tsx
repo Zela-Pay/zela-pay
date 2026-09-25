@@ -6,9 +6,11 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
+  sendEmailVerification,
 } from "firebase/auth";
 import { firebaseAuth, firebaseReady, googleProvider } from "../lib/firebaseClient";
 import { Logo } from "./Logo";
+import { AuthLayout, type AuthStep } from "./AuthLayout";
 
 /** Maps a Firebase Auth error code to copy a merchant can act on. */
 function firebaseErrorMessage(err: unknown): string {
@@ -59,7 +61,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const twoStepSignup = signup && firebaseReady;
 
   /** POSTs to our backend once we have a Firebase idToken (or a raw password, when Firebase isn't configured). */
-  async function finishAuth(body: Record<string, unknown>) {
+  async function finishAuth(body: Record<string, unknown>, redirectTo = "/dashboard") {
     const res = await fetch(`/api/auth/${mode}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -70,7 +72,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       setError(data.error ?? "Something went wrong");
       return;
     }
-    window.location.assign("/dashboard");
+    window.location.assign(redirectTo);
   }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -89,7 +91,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
       if (signup) {
         try {
-          await createUserWithEmailAndPassword(firebaseAuth, String(form.email), String(form.password));
+          const cred = await createUserWithEmailAndPassword(firebaseAuth, String(form.email), String(form.password));
+          // Best-effort — a failure here shouldn't block signup; /verify-email offers a resend.
+          await sendEmailVerification(cred.user).catch(() => {});
         } catch (err) {
           setError(firebaseErrorMessage(err));
           return;
@@ -99,14 +103,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       }
 
       let idToken: string;
+      let emailVerified: boolean;
       try {
         const cred = await signInWithEmailAndPassword(firebaseAuth, String(form.email), String(form.password));
         idToken = await cred.user.getIdToken();
+        emailVerified = cred.user.emailVerified;
       } catch (err) {
         setError(firebaseErrorMessage(err));
         return;
       }
-      await finishAuth({ idToken });
+      await finishAuth({ idToken }, emailVerified ? "/dashboard" : "/verify-email");
     } catch {
       setError("Network error. Try again.");
     } finally {
@@ -125,7 +131,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         return;
       }
       const idToken = await cred.user.getIdToken();
-      await finishAuth({ idToken });
+      await finishAuth({ idToken }, cred.user.emailVerified ? "/dashboard" : "/verify-email");
     } catch (err) {
       setError(firebaseErrorMessage(err));
     } finally {
@@ -133,10 +139,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     }
   }
 
+  const steps: AuthStep[] | undefined = twoStepSignup
+    ? [{ label: "Account", state: "active" }, { label: "Business details", state: "upcoming" }]
+    : undefined;
+
   return (
-    <div className="center-page">
-      <div className="card auth-card">
-        <p className="brand" style={{ padding: 0 }}>
+    <AuthLayout steps={steps}>
+      <div className="card auth-card" style={{ maxWidth: "none" }}>
+        <p className="brand auth-card-brand" style={{ padding: 0 }}>
           <Logo />
         </p>
         <h1>{signup ? "Create your account" : "Sign in"}</h1>
@@ -169,7 +179,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <input id="email" name="email" type="email" required autoComplete="email" />
           </div>
           <div className="field">
-            <label htmlFor="password">Password</label>
+            <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+              <label htmlFor="password" style={{ marginBottom: 0 }}>Password</label>
+              {!signup && firebaseReady && (
+                <Link href="/forgot-password" className="small">Forgot password?</Link>
+              )}
+            </div>
             <input id="password" name="password" type="password" required minLength={signup ? 10 : 1} autoComplete={signup ? "new-password" : "current-password"} />
             {signup && <span className="hint">At least 10 characters.</span>}
           </div>
@@ -195,6 +210,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           )}
         </p>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

@@ -6,7 +6,7 @@
  *   Customer payment       = gross checkout amount
  *   Platform fee            = gross amount × feeBps
  *   Gas                     = paid from the same underlying USDC balance
- *   Merchant settlement     = gross - platform fee - gas
+ *   Merchant settlement     = whatever remains after the fee and gas
  *
  * Arc uses USDC as its native gas asset while also exposing that same
  * balance through the ERC-20 interface. The ERC-20 representation uses
@@ -21,27 +21,37 @@
  *
  * The session is atomically claimed (awaiting_payment -> settling)
  * before funds move, preventing overlapping pollers from double-settling.
+ *
+ * The sweep itself is two independent on-chain legs (fee, then merchant),
+ * not one atomic operation — a chain transaction can't span both. If the
+ * process crashes or a leg fails between them, `funds_confirmed_at` and
+ * `fee_tx_hash` (set the moment each fact becomes true) let a retry pick
+ * up exactly where it left off instead of either double-paying the fee
+ * or silently abandoning a session that was actually paid.
  */
 
 import { query } from "../db/postgres.js";
 import { accountFromEncryptedKey } from "./chain.js";
 import { getSessionRow, toSession, type SessionRow } from "./sessionStore.js";
 import {
+  calculatePlatformFee,
   estimateGasReserve,
   rawToDecimal,
-  sweepToMerchant,
+  sendPlatformFee,
+  sweepRemainderToMerchant,
   toRaw,
   usdcBalance,
 } from "./settlement.js";
 import { enqueueWebhook } from "./webhookDelivery.js";
 
-const TRANSFERS_PER_SETTLEMENT = 2n; // deposit -> merchant, deposit -> fee payer
+const TRANSFERS_PER_SETTLEMENT = 2n; // deposit -> fee payer, deposit -> merchant
 
 async function claim(id: string): Promise<boolean> {
   const r = await query(
     `
       UPDATE checkout_sessions
-      SET status = 'settling'
+      SET status = 'settling',
+          funds_confirmed_at = COALESCE(funds_confirmed_at, now())
       WHERE id = $1
         AND status = 'awaiting_payment'
     `,
@@ -108,51 +118,18 @@ async function processSession(row: SessionRow): Promise<void> {
   const balanceRaw = await usdcBalance(session.network, depositAddress);
 
   /*
-   * A payment has arrived once the deposit contains at least
-   * the requested checkout amount.
+   * A payment has arrived once the deposit contains at least the
+   * requested checkout amount — but that check only applies BEFORE a
+   * session has ever been confirmed paid. Once funds_confirmed_at is
+   * set (a previous attempt got this far), the balance may already be
+   * lower than the original checkout amount because one leg of a prior
+   * sweep attempt already went out. Re-requiring the full original
+   * amount at that point would make the session look identical to "not
+   * paid yet" forever, even though it genuinely was paid.
    */
-  if (balanceRaw < grossAmountRaw) {
+  if (!row.funds_confirmed_at && balanceRaw < grossAmountRaw) {
     return;
   }
-
-  /*
-   * Estimate the USDC-equivalent native gas required for the two
-   * settlement transfers:
-   *
-   *   1. deposit -> merchant
-   *   2. deposit -> platform fee payer
-   *
-   * The estimate is represented in ERC-20's 6-decimal units.
-   */
-  const gasReserveRaw = await estimateGasReserve(
-    session.network,
-    TRANSFERS_PER_SETTLEMENT,
-  );
-
-  /*
-   * We need enough total USDC to cover:
-   *
-   *   merchant amount
-   * + platform fee
-   * + gas
-   *
-   * Since merchant + fee = gross payment:
-   *
-   *   required = gross + gas
-   *
-   * If the customer sent exactly the checkout amount, the gas has
-   * to be accounted for from the deposit balance. The settlement
-   * function therefore deducts gas from the merchant's net amount.
-   *
-   * We do NOT reject the payment merely because:
-   *
-   *   balance < gross + gas
-   *
-   * because that would require the customer to overpay.
-   *
-   * The customer payment itself is sufficient to identify a valid
-   * payment. Gas is deducted from the merchant settlement amount.
-   */
 
   if (!(await claim(row.id))) {
     return;
@@ -186,37 +163,63 @@ async function processSession(row: SessionRow): Promise<void> {
       throw new Error(`merchant ${row.merchant_id} missing settlement wallet`);
     }
 
+    const feeRaw = calculatePlatformFee(grossAmountRaw, session.platformFeeBps);
+
     /*
-     * Settlement accounting:
-     *
-     * grossAmountRaw
-     *     ↓
-     * platform fee (1%)
-     *     ↓
-     * gas reserve
-     *     ↓
-     * merchant receives the remainder
-     *
-     * The platform fee is calculated from the ORIGINAL checkout
-     * amount, never from a gas-adjusted balance.
+     * Sanity check up front, before moving any funds: the original
+     * checkout amount has to be able to cover the fee plus gas for
+     * both legs. This is a coarse pre-flight estimate only — the
+     * merchant leg itself always sweeps whatever actually remains,
+     * live, rather than trusting this number.
      */
-    const { hash, feeRaw } = await sweepToMerchant({
-      network: session.network,
+    const preflightGasReserveRaw = await estimateGasReserve(
+      session.network,
+      TRANSFERS_PER_SETTLEMENT,
+    );
+
+    if (grossAmountRaw - feeRaw - preflightGasReserveRaw <= 0n) {
+      throw new Error(
+        `Payment (${rawToDecimal(grossAmountRaw)} USDC) is insufficient to cover ` +
+          `the platform fee and settlement gas`,
+      );
+    }
+
+    /*
+     * Leg 1: platform fee. Fixed, derived only from the original
+     * checkout amount. Persisted the moment it confirms so a retry
+     * (after a crash, or because leg 2 below failed) never re-sends it.
+     */
+    let feeTxHash = row.fee_tx_hash;
+
+    if (!feeTxHash) {
+      feeTxHash = await sendPlatformFee(session.network, deposit, feeRaw);
+
+      await query(
+        `
+          UPDATE checkout_sessions
+          SET fee_tx_hash = $2, platform_fee_amount = $3
+          WHERE id = $1
+        `,
+        [row.id, feeTxHash, rawToDecimal(feeRaw)],
+      );
+    }
+
+    /*
+     * Leg 2: sweep whatever remains (minus a freshly-read gas reserve)
+     * to the merchant.
+     */
+    const merchantResult = await sweepRemainderToMerchant(
+      session.network,
       deposit,
-      merchantWallet: merchantWallet as `0x${string}`,
+      merchantWallet as `0x${string}`,
+    );
 
-      // Actual balance available in the deposit account.
-      balanceRaw,
-
-      // Original customer payment amount.
-      grossAmountRaw,
-
-      // Gas required for the two settlement transfers.
-      gasReserveRaw,
-
-      // Platform fee is calculated from grossAmountRaw.
-      feeBps: session.platformFeeBps,
-    });
+    if (!merchantResult) {
+      throw new Error(
+        `nothing left to settle to the merchant for session ${row.id} ` +
+          `after the platform fee and gas`,
+      );
+    }
 
     await query(
       `
@@ -224,10 +227,11 @@ async function processSession(row: SessionRow): Promise<void> {
         SET
           status = 'settled',
           settlement_tx_hash = $2,
-          platform_fee_amount = $3
+          last_settlement_error = NULL,
+          last_settlement_error_at = NULL
         WHERE id = $1
       `,
-      [row.id, hash, rawToDecimal(feeRaw)],
+      [row.id, merchantResult.hash],
     );
 
     const fresh = await getSessionRow(row.id);
@@ -237,15 +241,30 @@ async function processSession(row: SessionRow): Promise<void> {
     }
   } catch (err) {
     /*
-     * Funds remain in the deposit account.
+     * Funds remain in the deposit account (or, at worst, only the fee
+     * leg went out — which fee_tx_hash records so it isn't repeated).
      *
      * The session is released back to awaiting_payment so the next
-     * polling cycle can retry settlement from the actual on-chain
-     * balance.
+     * polling cycle can retry settlement from here. usdcContract.ts/
+     * settlement.ts already turn raw viem/RPC errors into a clean
+     * sentence before they reach here, so err.message is safe to
+     * persist and show directly — no raw error dump ever lands in the
+     * DB or reaches the merchant/customer.
      */
+    const message = err instanceof Error ? err.message : "Settlement failed for an unknown reason.";
+
     console.error(
       `[monitor] settlement failed for ${row.id}, will retry:`,
       err,
+    );
+
+    await query(
+      `
+        UPDATE checkout_sessions
+        SET last_settlement_error = $2, last_settlement_error_at = now()
+        WHERE id = $1
+      `,
+      [row.id, message],
     );
 
     await release(row.id);

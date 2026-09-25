@@ -6,9 +6,11 @@ import { query } from "../db/postgres.js";
 import { hashSecret } from "../services/apiKeys.js";
 import { hashPassword, verifyPassword } from "../services/passwords.js";
 import { verifyFirebaseIdToken } from "../services/firebaseAdmin.js";
+import { logLoginAttempt, type LoginMethod } from "../services/loginAudit.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import { requireDashboardSession } from "../middleware/dashboardAuth.js";
 import type { AuthedRequest } from "../middleware/apiKeyAuth.js";
+import type { Request } from "express";
 
 export const authRouter = Router();
 
@@ -21,11 +23,19 @@ export function normalizeEvmAddress(v: unknown): `0x${string}` | null {
   return getAddress(v);
 }
 
-async function startSession(merchantId: string): Promise<string> {
+function requestMeta(req: Request): { ip: string | null; userAgent: string | null } {
+  return {
+    ip: req.ip ?? null,
+    userAgent: (req.headers["user-agent"] as string | undefined) ?? null,
+  };
+}
+
+async function startSession(merchantId: string, meta: { ip: string | null; userAgent: string | null }): Promise<string> {
   const token = `dash_${crypto.randomBytes(32).toString("base64url")}`;
   await query(
-    `INSERT INTO dashboard_sessions (token_hash, merchant_id, expires_at) VALUES ($1,$2, now() + ($3 || ' days')::interval)`,
-    [hashSecret(token), merchantId, String(SESSION_TTL_DAYS)],
+    `INSERT INTO dashboard_sessions (token_hash, merchant_id, expires_at, ip, user_agent)
+     VALUES ($1,$2, now() + ($3 || ' days')::interval, $4, $5)`,
+    [hashSecret(token), merchantId, String(SESSION_TTL_DAYS), meta.ip, meta.userAgent],
   );
   return token;
 }
@@ -100,11 +110,20 @@ authRouter.post("/signup", authLimiter, async (req, res) => {
     }
     throw err;
   }
-  res.status(201).json({ token: await startSession(id), merchantId: id });
+  const meta = requestMeta(req);
+  await logLoginAttempt({
+    merchantId: id,
+    email: identity.email,
+    method: identity.firebaseUid ? "email_link" : "password",
+    success: true,
+    ...meta,
+  });
+  res.status(201).json({ token: await startSession(id, meta), merchantId: id });
 });
 
 authRouter.post("/login", authLimiter, async (req, res) => {
   const { email, password, idToken } = (req.body ?? {}) as Record<string, unknown>;
+  const meta = requestMeta(req);
 
   if (typeof idToken === "string") {
     let user;
@@ -114,6 +133,7 @@ authRouter.post("/login", authLimiter, async (req, res) => {
       res.status(401).json({ error: "Your sign-in has expired. Try again." });
       return;
     }
+    const method: LoginMethod = user.provider === "google.com" ? "google" : "email_link";
     const { rows } = await query<{ id: string }>(`SELECT id FROM merchants WHERE firebase_uid = $1`, [user.uid]);
     let merchantId = rows[0]?.id;
 
@@ -130,23 +150,28 @@ authRouter.post("/login", authLimiter, async (req, res) => {
     }
 
     if (!merchantId) {
+      await logLoginAttempt({ merchantId: null, email: user.email ?? "unknown", method, success: false, ...meta });
       res.status(404).json({ error: "No account found for this sign-in — create one first." });
       return;
     }
-    res.json({ token: await startSession(merchantId), merchantId });
+    await logLoginAttempt({ merchantId, email: user.email ?? "unknown", method, success: true, ...meta });
+    res.json({ token: await startSession(merchantId, meta), merchantId });
     return;
   }
 
+  const emailStr = typeof email === "string" ? email.trim() : "";
   const { rows } = await query<{ id: string; password_hash: string | null }>(
     `SELECT id, password_hash FROM merchants WHERE lower(email) = lower($1)`,
-    [typeof email === "string" ? email.trim() : ""],
+    [emailStr],
   );
   const ok = verifyPassword(typeof password === "string" ? password : "", rows[0]?.password_hash ?? null);
   if (!rows[0] || !ok) {
+    await logLoginAttempt({ merchantId: rows[0]?.id ?? null, email: emailStr, method: "password", success: false, ...meta });
     res.status(401).json({ error: "Incorrect email or password" });
     return;
   }
-  res.json({ token: await startSession(rows[0].id), merchantId: rows[0].id });
+  await logLoginAttempt({ merchantId: rows[0].id, email: emailStr, method: "password", success: true, ...meta });
+  res.json({ token: await startSession(rows[0].id, meta), merchantId: rows[0].id });
 });
 
 authRouter.post("/logout", requireDashboardSession, async (req: AuthedRequest, res) => {

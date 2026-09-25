@@ -10,6 +10,28 @@ export interface ZelaCheckoutClientOptions {
 }
 
 /**
+ * Thrown for any non-2xx API response. `message` is always a short,
+ * human-readable sentence — the API itself normalizes blockchain/RPC
+ * errors before they ever reach a response body (see apps/api/src/
+ * services/blockchainError.ts), so this never surfaces a raw viem/RPC
+ * error dump. `status`/`code` are there for programmatic handling;
+ * `raw` keeps the original response body for debugging.
+ */
+export class ZelaCheckoutError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly raw: unknown;
+
+  constructor(status: number, message: string, opts?: { code?: string; raw?: unknown }) {
+    super(message);
+    this.name = "ZelaCheckoutError";
+    this.status = status;
+    this.code = opts?.code;
+    this.raw = opts?.raw;
+  }
+}
+
+/**
  * Server-side Node.js SDK for merchants — a thin typed wrapper over the
  * REST API, in the spirit of stripe-node. Used from the merchant's own
  * backend (never the browser — it carries the secret key).
@@ -57,7 +79,17 @@ export class ZelaCheckoutClient {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`ZelaCheckout API error ${res.status}: ${text}`);
+      let message = `Request failed with status ${res.status}`;
+      let parsed: unknown = text;
+      try {
+        parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object" && typeof (parsed as { error?: unknown }).error === "string") {
+          message = (parsed as { error: string }).error;
+        }
+      } catch {
+        // Non-JSON body (e.g. an upstream proxy/gateway error page) — keep the generic message above rather than dumping raw HTML/text.
+      }
+      throw new ZelaCheckoutError(res.status, message, { raw: parsed });
     }
 
     return res.json() as Promise<T>;

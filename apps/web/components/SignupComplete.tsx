@@ -4,6 +4,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { firebaseAuth } from "../lib/firebaseClient";
 import { Logo } from "./Logo";
+import { AuthLayout, type AuthStep } from "./AuthLayout";
+
+const STEPS: AuthStep[] = [{ label: "Account", state: "done" }, { label: "Business details", state: "active" }];
 
 /**
  * Second half of signup (see AuthForm.tsx's header comment): the merchant
@@ -105,7 +108,7 @@ export function SignupComplete() {
         return;
       }
 
-      window.location.assign("/dashboard");
+      window.location.assign(user.emailVerified ? "/dashboard" : "/verify-email");
     } catch (err) {
       console.error("Signup request failed:", err);
 
@@ -126,16 +129,16 @@ export function SignupComplete() {
 
   if (checking || !user) {
     return (
-      <div className="center-page">
-        <div className="card auth-card muted">Loading…</div>
-      </div>
+      <AuthLayout steps={STEPS}>
+        <div className="card auth-card muted" style={{ maxWidth: "none" }}>Loading…</div>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="center-page">
-      <div className="card auth-card">
-        <p className="brand" style={{ padding: 0 }}>
+    <AuthLayout steps={STEPS}>
+      <div className="card auth-card" style={{ maxWidth: "none" }}>
+        <p className="brand auth-card-brand" style={{ padding: 0 }}>
           <Logo />
         </p>
 
@@ -209,6 +212,6 @@ export function SignupComplete() {
           </button>
         </form>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

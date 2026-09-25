@@ -17,6 +17,10 @@ export interface SessionRow {
   settlement_tx_hash: string | null;
   refund_tx_hash: string | null;
   refund_to: string | null;
+  funds_confirmed_at: Date | null;
+  fee_tx_hash: string | null;
+  last_settlement_error: string | null;
+  last_settlement_error_at: Date | null;
   platform_fee_bps: number;
   platform_fee_amount: string | null;
   success_url: string | null;
@@ -48,6 +52,8 @@ export function toSession(r: SessionRow): CheckoutSession {
     successUrl: r.success_url,
     cancelUrl: r.cancel_url,
     metadata: r.metadata ?? {},
+    lastSettlementError: r.last_settlement_error,
+    lastSettlementErrorAt: r.last_settlement_error_at ? r.last_settlement_error_at.toISOString() : null,
     createdAt: r.created_at.toISOString(),
     expiresAt: r.expires_at.toISOString(),
   };

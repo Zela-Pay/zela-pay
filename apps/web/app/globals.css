@@ -103,8 +103,13 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
  * the hero coin's old shadow had — see .coin-img above). */
 .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px;
-  box-shadow: 0 1px 0 0 color-mix(in srgb, var(--ink) 6%, transparent) inset, 0 20px 40px -24px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 0 0 color-mix(in srgb, var(--ink) 6%, transparent) inset, 0 12px 24px -18px rgba(0, 0, 0, 0.32);
 }
+/* A handful of settings carry real consequence (payout destination, password)
+ * — giving them the same weight as "your webhook URL" flattens the hierarchy
+ * a merchant actually needs. Thin edge, not a filled banner: still reads as
+ * the same card family, just flagged. */
+.card-sensitive { border-left: 2px solid var(--warn); }
 .card + .card { margin-top: 16px; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -151,6 +156,58 @@ pre.snippet { background: var(--surface-2); border: 1px solid var(--line); borde
 /* ── Auth ── */
 .center-page { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
 .auth-card { width: 100%; max-width: 420px; }
+
+/* ── Auth shell (split-screen: brand panel + form) ──
+ * Only used by the dashboard's own login/signup/reset/verify screens
+ * (AuthLayout.tsx) — .center-page/.auth-card above stay untouched since
+ * the hosted checkout page (CheckoutCard.tsx/PaymentLinkCard.tsx) still
+ * uses them directly and isn't part of this redesign. The brand panel
+ * reuses .hero-grid's dotted-grid background for visual continuity with
+ * the marketing site rather than inventing a second decorative motif.
+ */
+.auth-shell { min-height: 100vh; display: grid; grid-template-columns: 1fr; }
+.auth-brand {
+  display: none; position: relative; overflow: hidden; isolation: isolate;
+  flex-direction: column; justify-content: space-between;
+  padding: 48px; background: var(--surface); border-right: 1px solid var(--line);
+}
+.auth-brand-content { position: relative; z-index: 1; }
+.auth-brand h2 {
+  font-family: var(--font-display), inherit; font-weight: 600;
+  font-size: clamp(24px, 2.2vw, 30px); line-height: 1.18; letter-spacing: -0.02em;
+  margin: 28px 0 14px; text-wrap: balance;
+}
+.auth-brand .lead { color: var(--muted); font-size: 14.5px; line-height: 1.6; max-width: 36ch; margin-bottom: 30px; }
+.auth-points { display: flex; flex-direction: column; gap: 16px; }
+.auth-point { display: flex; gap: 12px; align-items: flex-start; }
+.auth-point-icon {
+  flex: none; width: 26px; height: 26px; border-radius: 7px; margin-top: 1px;
+  background: var(--accent-soft); color: var(--accent); display: grid; place-items: center;
+}
+.auth-point-text strong { display: block; font-size: 13.5px; font-weight: 600; margin-bottom: 1px; }
+.auth-point-text span { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.auth-foot { position: relative; z-index: 1; font-size: 12.5px; color: var(--muted); margin: 0; }
+.auth-form-side { display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+.auth-form-col { width: 100%; max-width: 420px; }
+
+@media (min-width: 920px) {
+  .auth-shell { grid-template-columns: minmax(0, 440px) 1fr; }
+  .auth-brand { display: flex; }
+  /* The brand panel already shows the wordmark at this width — each auth card's own copy (kept for narrower widths, where the panel is hidden) would otherwise double up. */
+  .auth-card-brand { display: none; }
+}
+
+/* Two-step signup progress indicator */
+.auth-steps { display: flex; align-items: center; gap: 8px; margin-bottom: 22px; }
+.auth-step { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.auth-step .dot {
+  width: 19px; height: 19px; border-radius: 50%; border: 1px solid var(--line);
+  display: grid; place-items: center; font-size: 10.5px; font-weight: 700; flex: none;
+}
+.auth-step.done .dot { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.auth-step.active .dot { border-color: var(--ink); color: var(--ink); }
+.auth-step.active { color: var(--ink); font-weight: 600; }
+.auth-step-line { flex: 1; height: 1px; background: var(--line); min-width: 16px; }
 
 /* ── Marketing site chrome ──
  * A floating pill navbar, inset from the viewport edges rather than a
@@ -333,9 +390,15 @@ pre.snippet { background: var(--surface-2); border: 1px solid var(--line); borde
   }
 }
 
-/* ── Sections ── */
+/* ── Sections ──
+ * .section-head defaults centered (fine for a short, standalone
+ * intro), but every section on the home page using it back-to-back reads
+ * as one repeating template rather than a composed page — .left breaks
+ * that rhythm for sections that pair with an asymmetric two-column layout
+ * (the demo and code sections below) rather than sitting above a grid. */
 .section { padding: 72px 0; border-top: 1px solid var(--line); }
 .section-head { max-width: 640px; margin: 0 auto 40px; text-align: center; }
+.section-head.left { margin: 0 0 32px; text-align: left; max-width: none; }
 .section-head h2 { font-family: var(--font-display), inherit; font-size: clamp(24px, 3vw, 32px); letter-spacing: -0.02em; margin-bottom: 10px; }
 .section-head p { color: var(--muted); font-size: 16px; margin: 0; }
 
@@ -379,6 +442,29 @@ pre.snippet { background: var(--surface-2); border: 1px solid var(--line); borde
 
 .code-panel { max-width: 720px; margin: 0 auto; }
 .code-panel .snippet { font-size: 13.5px; }
+
+/* ── Code section — real window chrome instead of a bare <pre>. A
+ * developer audience reads this one element as a proxy for the whole
+ * product's craft, so it gets more than the default .snippet box. */
+.code-section-inner { display: grid; grid-template-columns: 1fr; gap: 32px; align-items: center; }
+.code-window { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface-2); }
+.code-window-bar { display: flex; align-items: center; gap: 6px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.code-window-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.code-window-name { margin-left: 8px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.code-window .snippet { border: 0; border-radius: 0; background: transparent; margin: 0; }
+.code-checklist { display: flex; flex-direction: column; gap: 18px; margin: 0; padding: 0; list-style: none; }
+.code-checklist li { display: flex; gap: 12px; align-items: flex-start; }
+.code-checklist .num {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; margin-top: 1px;
+  background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 700;
+  display: grid; place-items: center;
+}
+.code-checklist strong { display: block; font-size: 14.5px; margin-bottom: 2px; }
+.code-checklist span { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+
+@media (min-width: 880px) {
+  .code-section-inner { grid-template-columns: 1.15fr 0.85fr; gap: 48px; }
+}
 
 .cta-band { text-align: center; padding: 72px 0; }
 .cta-band h2 { font-family: var(--font-display), inherit; font-size: clamp(24px, 3vw, 34px); letter-spacing: -0.02em; margin-bottom: 12px; }
@@ -487,7 +573,32 @@ pre.snippet { background: var(--surface-2); border: 1px solid var(--line); borde
 }
 
 /* ── Landing-page live demo ── */
-.demo-widget { max-width: 560px; margin: 0 auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+/* ── "Try it" demo — the site's best differentiator (a live checkout, not
+ * a screenshot), so it gets its own composed moment instead of sitting in
+ * the same centered-head-over-a-card template as every other section. The
+ * panel reuses .hero-grid's dotted texture for continuity with the hero
+ * above, and pairs the widget with copy in an asymmetric two-column layout
+ * once there's room for one. */
+.demo-section-inner {
+  position: relative; overflow: hidden; isolation: isolate;
+  border: 1px solid var(--line); border-radius: 18px;
+  padding: 36px clamp(20px, 4vw, 44px);
+  display: grid; grid-template-columns: 1fr; gap: 28px; align-items: center;
+}
+.demo-section-copy { position: relative; z-index: 1; }
+.demo-section-copy .eyebrow { margin: 0 0 16px; }
+.demo-section-copy h2 {
+  font-family: var(--font-display), inherit; font-size: clamp(24px, 3.2vw, 34px);
+  letter-spacing: -0.02em; margin: 0 0 12px; text-wrap: balance;
+}
+.demo-section-copy p { color: var(--muted); font-size: 15.5px; line-height: 1.6; max-width: 42ch; margin: 0; }
+.demo-widget-wrap { position: relative; z-index: 1; }
+
+@media (min-width: 880px) {
+  .demo-section-inner { grid-template-columns: 0.9fr 1.1fr; gap: 56px; padding: 48px clamp(32px, 5vw, 64px); }
+}
+
+.demo-widget { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
 .demo-widget-presets { display: flex; gap: 8px; margin-bottom: 14px; }
 .chip {
   border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-weight: 600;

@@ -155,7 +155,7 @@ before(async () => {
 
   const { migrate } = await import("../db/migrate.js");
   const files = await migrate();
-  assert.equal(files.length, 9);
+  assert.equal(files.length, 12);
   // Re-running against an already-migrated database must be a no-op, not
   // re-run non-idempotent statements like 005's RENAME COLUMN.
   assert.deepEqual(await migrate(), []);
@@ -544,6 +544,39 @@ test("payment links: open-amount link requires the payer to choose", async () =>
   assert.equal(paid.status, 201);
   const { session } = await paid.json();
   assert.equal(Number(session.amountSettlement), 12.34);
+});
+
+test("a funded deposit settles: fee leg + merchant sweep, both idempotent on retry", async () => {
+  const auth = { authorization: `Bearer ${sk}` };
+  const created = await (await json("POST", "/v1/sessions", { amount: "10" }, auth)).json();
+  const settleSessionId: string = created.session.id;
+  const settleDepositAddress: string = created.session.depositAddress;
+
+  fundedAddresses.add(settleDepositAddress.toLowerCase());
+  await mods.query(`DELETE FROM webhook_events WHERE session_id = $1`, [settleSessionId]);
+
+  await mods.pollPendingSessions();
+
+  const row = (await mods.getSessionRow(settleSessionId))!;
+  assert.equal(row.status, "settled");
+  assert.equal(row.settlement_tx_hash, FAKE_TX_HASH);
+  assert.ok(row.fee_tx_hash, "fee leg tx hash was recorded");
+  assert.ok(row.funds_confirmed_at, "funds_confirmed_at was stamped");
+  assert.equal(Number(row.platform_fee_amount), 0.1); // 1% of 10
+
+  const { rows: events } = await mods.query<{ type: string }>(
+    `SELECT type FROM webhook_events WHERE session_id = $1`,
+    [settleSessionId],
+  );
+  assert.deepEqual(events.map((e) => e.type), ["checkout.session.completed"]);
+
+  // Re-polling an already-settled session (status is no longer
+  // 'awaiting_payment') must not touch it again.
+  const feeTxHashBefore = row.fee_tx_hash;
+  await mods.pollPendingSessions();
+  const rowAfter = (await mods.getSessionRow(settleSessionId))!;
+  assert.equal(rowAfter.status, "settled");
+  assert.equal(rowAfter.fee_tx_hash, feeTxHashBefore);
 });
 
 test("logout invalidates the session token", async () => {

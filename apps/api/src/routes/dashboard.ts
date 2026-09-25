@@ -54,6 +54,75 @@ dashboardRouter.get("/me", async (req: AuthedRequest, res) => {
   });
 });
 
+// ── Security: active sessions + login history ─────────────────────────────
+
+dashboardRouter.get("/security/sessions", async (req: AuthedRequest, res) => {
+  const { rows } = await query<{
+    token_hash: string;
+    ip: string | null;
+    user_agent: string | null;
+    created_at: Date;
+    last_seen_at: Date;
+    expires_at: Date;
+  }>(
+    `SELECT token_hash, ip, user_agent, created_at, last_seen_at, expires_at
+     FROM dashboard_sessions WHERE merchant_id = $1 AND expires_at > now()
+     ORDER BY last_seen_at DESC`,
+    [req.merchantId],
+  );
+  res.json({
+    sessions: rows.map((r) => ({
+      id: r.token_hash.slice(0, 16),
+      ip: r.ip,
+      userAgent: r.user_agent,
+      createdAt: r.created_at.toISOString(),
+      lastSeenAt: r.last_seen_at.toISOString(),
+      expiresAt: r.expires_at.toISOString(),
+      isCurrent: r.token_hash === req.sessionTokenHash,
+    })),
+  });
+});
+
+dashboardRouter.delete("/security/sessions/:id", async (req: AuthedRequest, res) => {
+  // :id is the first 16 chars of the session's token_hash (see above) — not
+  // reversible into a usable token, just a stable per-row identifier so the
+  // full hash never needs to round-trip through the client.
+  const idPrefix = String(req.params.id);
+  const r = await query(
+    `DELETE FROM dashboard_sessions WHERE merchant_id = $1 AND token_hash LIKE $2`,
+    [req.merchantId, `${idPrefix}%`],
+  );
+  if ((r.rowCount ?? 0) === 0) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+dashboardRouter.get("/security/login-history", async (req: AuthedRequest, res) => {
+  const { rows } = await query<{
+    method: string;
+    success: boolean;
+    ip: string | null;
+    user_agent: string | null;
+    created_at: Date;
+  }>(
+    `SELECT method, success, ip, user_agent, created_at
+     FROM login_audit_log WHERE merchant_id = $1
+     ORDER BY created_at DESC LIMIT 25`,
+    [req.merchantId],
+  );
+  res.json({
+    logins: rows.map((r) => ({
+      method: r.method,
+      success: r.success,
+      ip: r.ip,
+      userAgent: r.user_agent,
+      createdAt: r.created_at.toISOString(),
+    })),
+  });
+});
+
 dashboardRouter.get("/stats", async (req: AuthedRequest, res) => {
   const { rows } = await query<{
     settled_count: number;
