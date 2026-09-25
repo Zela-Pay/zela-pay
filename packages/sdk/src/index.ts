@@ -1,4 +1,8 @@
-import type { CreateSessionRequest, CreateSessionResponse, CheckoutSession } from "@zela-checkout/shared";
+import type {
+  CreateSessionRequest,
+  CreateSessionResponse,
+  CheckoutSession,
+} from "@zela-checkout/shared";
 
 export interface ZelaCheckoutClientOptions {
   secretKey: string;
@@ -19,11 +23,13 @@ export class ZelaCheckoutClient {
 
   constructor(options: ZelaCheckoutClientOptions) {
     this.secretKey = options.secretKey;
-    this.apiUrl = options.apiUrl ?? "https://api.checkout.zelapay.xyz";
+    this.apiUrl = options.apiUrl ?? "https://api.payment.zelapay.xyz";
   }
 
   sessions = {
-    create: async (req: CreateSessionRequest): Promise<CreateSessionResponse> => {
+    create: async (
+      req: CreateSessionRequest,
+    ): Promise<CreateSessionResponse> => {
       return this.request<CreateSessionResponse>("POST", "/v1/sessions", req);
     },
     retrieve: async (sessionId: string): Promise<CheckoutSession> => {
@@ -35,7 +41,11 @@ export class ZelaCheckoutClient {
     },
   };
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
     const res = await fetch(`${this.apiUrl}${path}`, {
       method,
       headers: {

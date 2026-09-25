@@ -12,7 +12,7 @@ export interface ZelaCheckoutOpenOptions {
   onClose?: () => void;
 }
 
-const DEFAULT_API_URL = "https://api.checkout.zelapay.xyz";
+const DEFAULT_API_URL = "https://api.payment.zelapay.xyz";
 
 /**
  * Public widget API — usage on a merchant's site:
@@ -27,13 +27,19 @@ async function open(options: ZelaCheckoutOpenOptions): Promise<void> {
   // network round-trip, and waiting for it before showing anything leaves
   // a dead gap after the merchant's button is clicked where nothing
   // visibly happens (the classic "did my click register?" moment).
-  const modal = openCheckoutModal(null, { onClose: options.onClose, loading: true });
+  const modal = openCheckoutModal(null, {
+    onClose: options.onClose,
+    loading: true,
+  });
 
   try {
     // Widget sessions use the publishable-key endpoint; secret keys never go in the browser.
     const res = await fetch(`${DEFAULT_API_URL}/v1/sessions/public`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Publishable-Key": options.publishableKey },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Publishable-Key": options.publishableKey,
+      },
       body: JSON.stringify({
         amount: options.amount,
         successUrl: options.successUrl,
@@ -42,7 +48,8 @@ async function open(options: ZelaCheckoutOpenOptions): Promise<void> {
       }),
     });
 
-    if (!res.ok) throw new Error(`Failed to create checkout session: ${res.status}`);
+    if (!res.ok)
+      throw new Error(`Failed to create checkout session: ${res.status}`);
 
     const data = (await res.json()) as CreateSessionResponse;
     modal.showIframe(data.checkoutUrl);
