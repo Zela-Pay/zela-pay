@@ -5,7 +5,7 @@ export default function DocsOverview() {
     <>
       <h1>Documentation</h1>
       <p>
-        Zela Payment Rails is payment infrastructure for native USDC on Arc, Circle&rsquo;s stablecoin-native L1.
+        ZelaPay Checkout is payment infrastructure for native USDC on Arc, Circle&rsquo;s stablecoin-native L1.
         Two rails are live: <strong>Checkout</strong> — documented here — a hosted and embeddable checkout for
         accepting one-time payments, and <strong>Payment Links</strong>, a reusable shareable URL/QR that needs no
         website integration. USDC is the settlement currency directly — there&rsquo;s no swap, and no approval
@@ -15,7 +15,7 @@ export default function DocsOverview() {
       <h2>How a payment works</h2>
       <ol>
         <li>Your server creates a checkout <strong>session</strong> for an amount, in USDC.</li>
-        <li>The customer opens the hosted checkout page (or your embedded widget) and pays with the Zela app or an EVM wallet.</li>
+        <li>The customer opens the hosted checkout page (or your embedded widget) and pays with the ZelaPay App or another supported EVM wallet.</li>
         <li>Checkout watches the deposit address, and once it&rsquo;s paid, sweeps the funds to your wallet minus the platform fee.</li>
         <li>You get a signed <code>checkout.session.completed</code> webhook.</li>
       </ol>

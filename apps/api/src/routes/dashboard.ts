@@ -9,6 +9,7 @@ import { assertSafeWebhookUrl } from "../services/urlSafety.js";
 import { getSessionRow, toSession, type SessionRow } from "../services/sessionStore.js";
 import { getPaymentLinkRow, toPaymentLink, type PaymentLinkRow } from "../services/paymentLinkStore.js";
 import { isRefundableStatus, sweepRefund } from "../services/refund.js";
+import { toPayout, type PayoutRow } from "../services/payoutStore.js";
 import { enqueueWebhook } from "../services/webhookDelivery.js";
 import { requireDashboardSession } from "../middleware/dashboardAuth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
@@ -430,6 +431,86 @@ dashboardRouter.put("/merchant-id", rateLimit({ windowMs: 60_000, max: 10 }), as
     throw err;
   }
   res.json({ handle, zelaMerchantId: `${handle}.zela.merchant` });
+});
+
+// ── Mini App manifest ────────────────────────────────────────────────────────
+// Flipping is_mini_app on lists this merchant in the Zela app's Mini App
+// directory (GET /v1/mini-apps, public/unauthenticated — see routes/
+// miniApps.ts) with these fields. It does not change anything about
+// Checkout — a Mini App is a merchant that also has a manifest and can call
+// POST /v1/payouts. See docs/miniapps for the full picture.
+
+dashboardRouter.get("/mini-app", async (req: AuthedRequest, res) => {
+  const { rows } = await query<{
+    is_mini_app: boolean;
+    mini_app_url: string | null;
+    mini_app_icon_url: string | null;
+    mini_app_tagline: string | null;
+  }>(
+    `SELECT is_mini_app, mini_app_url, mini_app_icon_url, mini_app_tagline FROM merchants WHERE id = $1`,
+    [req.merchantId],
+  );
+  const m = rows[0]!;
+  res.json({
+    isMiniApp: m.is_mini_app,
+    url: m.mini_app_url,
+    iconUrl: m.mini_app_icon_url,
+    tagline: m.mini_app_tagline,
+  });
+});
+
+dashboardRouter.patch("/mini-app", rateLimit({ windowMs: 60_000, max: 10 }), async (req: AuthedRequest, res) => {
+  const { isMiniApp, url, iconUrl, tagline } = (req.body ?? {}) as Record<string, unknown>;
+
+  for (const [field, value] of [["url", url], ["iconUrl", iconUrl]] as const) {
+    if (value === undefined || value === null || value === "") continue;
+    let ok = false;
+    try {
+      ok = typeof value === "string" && value.length <= 2000 && ["http:", "https:"].includes(new URL(value).protocol);
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      res.status(400).json({ error: `${field} must be an http(s) URL` });
+      return;
+    }
+  }
+  if (tagline !== undefined && tagline !== null && (typeof tagline !== "string" || tagline.length > 140)) {
+    res.status(400).json({ error: "tagline must be 140 characters or fewer" });
+    return;
+  }
+  if (isMiniApp === true) {
+    // Can't list a Mini App with no launch URL — the directory entry would
+    // have nowhere to send the user.
+    const { rows } = await query<{ mini_app_url: string | null }>(`SELECT mini_app_url FROM merchants WHERE id = $1`, [req.merchantId]);
+    const effectiveUrl = typeof url === "string" && url ? url : rows[0]?.mini_app_url;
+    if (!effectiveUrl) {
+      res.status(400).json({ error: "Set a launch URL before turning your Mini App on" });
+      return;
+    }
+  }
+
+  await query(
+    `UPDATE merchants SET
+       is_mini_app = COALESCE($2, is_mini_app),
+       mini_app_url = COALESCE($3, mini_app_url),
+       mini_app_icon_url = COALESCE($4, mini_app_icon_url),
+       mini_app_tagline = COALESCE($5, mini_app_tagline)
+     WHERE id = $1`,
+    [req.merchantId, typeof isMiniApp === "boolean" ? isMiniApp : null, url || null, iconUrl || null, tagline || null],
+  );
+  res.json({ ok: true });
+});
+
+// ── Payouts (Mini Apps) ──────────────────────────────────────────────────────
+
+dashboardRouter.get("/payouts", async (req: AuthedRequest, res) => {
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "25"), 10) || 25, 1), 100);
+  const { rows } = await query<PayoutRow & Record<string, unknown>>(
+    `SELECT * FROM payouts WHERE merchant_id = $1 ORDER BY created_at DESC LIMIT $2`,
+    [req.merchantId, limit],
+  );
+  res.json({ payouts: rows.map(toPayout) });
 });
 
 // ── Account settings ────────────────────────────────────────────────────────

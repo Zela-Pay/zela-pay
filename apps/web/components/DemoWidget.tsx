@@ -118,7 +118,7 @@ export function DemoWidget() {
                 <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             </button>
-            <iframe src={checkoutUrl} title="Zela Payment Rails Checkout demo" />
+            <iframe src={checkoutUrl} title="ZelaPay Checkout demo" />
           </div>
         </div>
       )}

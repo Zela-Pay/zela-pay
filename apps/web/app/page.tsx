@@ -6,6 +6,9 @@ import { Coin3D } from "../components/Coin3D";
 import { DemoWidget } from "../components/DemoWidget";
 import { HeroSpotlight } from "../components/HeroSpotlight";
 
+// The consumer side of the ecosystem lives on the main site.
+const ZELAPAY_APP_URL = "https://zelapay.xyz/app";
+
 function ArrowRight() {
   return (
     <svg width="13" height="13" viewBox="0 0 12 12" fill="none" aria-hidden="true">
@@ -14,56 +17,83 @@ function ArrowRight() {
   );
 }
 
-const TOOLS = [
+function Check() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9.5l4 4L15 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  );
+}
+
+const USE_CASES = [
   {
-    href: "/docs",
-    label: "Checkout",
-    tagline: "Embeddable & hosted",
-    body: "Drop a script tag on your site, or send customers to a hosted page. Amount in, session created, customer pays with the Zela app or any EVM wallet — same webhooks either way.",
+    href: "/docs/widget",
+    label: "E-commerce stores",
+    tagline: "Checkout widget",
+    body: "Accept digital asset payments directly from your online store with a smooth checkout experience — one script tag, or a hosted page.",
+  },
+  {
+    href: "/docs/quickstart",
+    label: "Websites and applications",
+    tagline: "API · SDK · widget",
+    body: "Integrate payment functionality using the REST API, the server-side SDK, or the embeddable checkout widget.",
   },
   {
     href: "/docs/payment-links",
-    label: "Payment Links",
+    label: "Payment links",
     tagline: "No integration required",
-    body: "A reusable URL or QR from your dashboard — fixed price or pay-what-you-want. Never expires, works for donations, invoices, or a link in a DM. No code at all.",
+    body: "Create payment requests you can share with customers — a reusable URL or QR, fixed price or pay-what-you-want. No code at all.",
+  },
+  {
+    href: "/docs/api",
+    label: "Developers and platforms",
+    tagline: "Build your own flow",
+    body: "Build custom payment experiences using flexible integration tools, signed webhooks, and payment infrastructure.",
   },
 ];
 
-const FEATURES = [
-  {
-    title: "Direct settlement",
-    body: "USDC is the settlement currency directly on Arc — no swap, no approval step.",
-  },
-  {
-    title: "Pay any way",
-    body: "Customers open the Zela app for a PIN-confirmed payment, or connect any EVM wallet — MetaMask, Rabby, Coinbase Wallet.",
-  },
-  {
-    title: "Drop-in or hosted",
-    body: "Embed the widget with one script tag, or send customers to a hosted checkout page. Same sessions, same webhooks.",
-  },
-  {
-    title: "Payment links, no code",
-    body: "Create a reusable link or QR from the dashboard — fixed or pay-what-you-want — and share it. No integration needed.",
-  },
-  {
-    title: "Signed webhooks",
-    body: "Get a checkout.session.completed event the moment funds settle, HMAC-signed and retried until you acknowledge it.",
-  },
-  {
-    title: "One flat fee",
-    body: "1% of settled volume, deducted from what you receive. No monthly fee, no setup fee, no surprise chargebacks.",
-  },
-  {
-    title: "Your keys, your funds",
-    body: "Deposit keys are encrypted at rest and only ever touched by the settlement job. Funds go straight to your wallet.",
-  },
+const WALLETS = [
+  { name: "ZelaPay App", note: "PIN-confirmed" },
+  { name: "MetaMask" },
+  { name: "Rabby" },
+  { name: "Coinbase Wallet" },
+  { name: "Other EVM wallets" },
+];
+
+const DEV_TOOLS = [
+  { href: "/docs/api", title: "Payment API", body: "Create payment requests, verify transactions, and connect your backend to payment infrastructure." },
+  { href: "/docs/sdk", title: "SDKs", body: "Integrate payment functionality without building every component from scratch." },
+  { href: "/docs/widget", title: "Checkout widget", body: "Add a ready-made payment experience to your website with one script tag." },
+  { href: "/docs/webhooks", title: "Webhooks", body: "Receive HMAC-signed payment status updates, retried until you acknowledge them." },
+  { href: "/docs/quickstart", title: "Developer tools", body: "Test integrations, manage API credentials, and monitor transactions from the dashboard." },
 ];
 
 const STEPS = [
   { title: "Create a session", body: "Call the API with an amount, or let the widget do it with your publishable key." },
-  { title: "Customer pays", body: "They open the hosted page, pick Zela app or a wallet, and confirm — in native USDC." },
-  { title: "You get notified", body: "A signed webhook lands the moment it settles. Funds are already in your wallet." },
+  { title: "Customer pays", body: "They open the checkout, choose the ZelaPay App or another supported wallet, and confirm in USDC." },
+  { title: "You get notified", body: "A signed webhook lands once the payment settles, and funds go to your wallet." },
+];
+
+// Copy rule: no "instant", "guaranteed" or "universal" claims here.
+const SETTLEMENT = [
+  "Digital asset payments settle directly on supported blockchain networks — today, in native USDC on Arc, with no swap step.",
+  "Your business integrates payment functionality without building the underlying infrastructure.",
+  "Every payment leaves a transparent, verifiable transaction record.",
+];
+
+const TRUST = [
+  { title: "Transaction verification", body: "Payment status is verified onchain before a session is marked complete." },
+  { title: "Payment visibility", body: "You and your customers can follow each payment from pending to confirmed." },
+  { title: "Signed webhooks", body: "Every event is HMAC-signed so your backend can verify it came from ZelaPay." },
+  { title: "Business controls", body: "Manage API keys, sessions, and account security from the dashboard." },
+  { title: "Keys encrypted at rest", body: "Deposit keys are encrypted and only ever touched by the settlement job." },
+  { title: "One flat fee", body: "1% of settled volume, deducted from what you receive. No monthly or setup fee." },
+];
+
+const ROADMAP = [
+  { title: "Universal USDC settlement", body: "Accept USDC from supported networks and settle into a unified USDC balance on Arc." },
+  { title: "More networks", body: "Solana · Ethereum · Base · Polygon · and more." },
+  { title: "Cross-chain payments", body: "Let customers pay from supported networks without you managing multiple chains." },
+  { title: "Global payouts", body: "Send USDC to customers, creators, vendors, and businesses across supported networks." },
+  { title: "More wallets", body: "Connect ZelaPay with the wallets your customers already use." },
 ];
 
 export default async function Home() {
@@ -78,15 +108,16 @@ export default async function Home() {
           <HeroSpotlight>
           <section className="hero">
             <div>
-              <span className="eyebrow"><span className="dot" aria-hidden="true" />Zela Payment Rails · built on Arc</span>
-              <h1>Accept USDC, settled the moment it arrives.</h1>
+              <span className="eyebrow"><span className="dot" aria-hidden="true" />ZelaPay Checkout · settles in USDC on Arc</span>
+              <h1>Your checkout. Your customers. More ways to pay.</h1>
               <p className="hero-sub">
-                <strong>Checkout</strong> is the first rail: embed it on any website or share it as a link.
-                Customers pay with the Zela app or any EVM wallet, in Arc&rsquo;s native USDC — no swap, no waiting.
+                Give your customers a simple way to pay with supported digital wallets. Integrate{" "}
+                <strong>ZelaPay Checkout</strong> into your website, online store, or application — or share a
+                payment link — and build a payment experience that works for your business.
               </p>
               <div className="hero-cta">
-                <Link className="btn btn-primary" href="/signup">Create a merchant account</Link>
-                <Link className="btn" href="/docs">Read the docs</Link>
+                <Link className="btn btn-primary" href="/signup">Start accepting payments</Link>
+                <Link className="btn" href="/docs">Explore the documentation</Link>
               </div>
               <p className="hero-note">Free to start · 1% flat fee on settled volume · No monthly cost</p>
             </div>
@@ -97,14 +128,14 @@ export default async function Home() {
           </HeroSpotlight>
         </div>
 
-        <section className="section" aria-labelledby="tools-h">
+        <section className="section" aria-labelledby="usecases-h">
           <div className="site-main">
             <div className="section-head">
-              <h2 id="tools-h">Two rails, one account</h2>
-              <p>Pick the integration that fits — same settlement, same dashboard, same webhooks underneath.</p>
+              <h2 id="usecases-h">Built for the way businesses operate</h2>
+              <p>One account, one dashboard, one set of webhooks — whichever way you integrate.</p>
             </div>
             <div className="tool-grid">
-              {TOOLS.map((t) => (
+              {USE_CASES.map((t) => (
                 <Link className="tool-card" href={t.href} key={t.label}>
                   <span className="tool-tagline">{t.tagline}</span>
                   <h3>{t.label}</h3>
@@ -113,6 +144,29 @@ export default async function Home() {
                 </Link>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="section" aria-labelledby="pay-h">
+          <div className="site-main">
+            <div className="section-head">
+              <h2 id="pay-h">Your customers choose how they pay</h2>
+              <p>
+                Your business shouldn&rsquo;t have to limit its customers to one wallet. ZelaPay Checkout supports
+                multiple payment experiences — customers can pay through the ZelaPay App or other supported crypto wallets.
+              </p>
+            </div>
+            <ul className="wallet-chips">
+              {WALLETS.map((w, i) => (
+                <li key={w.name} className={i === 0 ? "primary" : undefined}>
+                  {w.name}
+                  {w.note && <span>{w.note}</span>}
+                </li>
+              ))}
+            </ul>
+            <p className="center-note small muted">
+              Same sessions, same webhooks, whichever wallet pays. <Link href="/docs/payment-methods">Payment methods →</Link>
+            </p>
           </div>
         </section>
 
@@ -132,50 +186,25 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="section" aria-labelledby="features-h">
+        <section className="section" aria-labelledby="dev-h">
           <div className="site-main">
             <div className="section-head left">
-              <h2 id="features-h">Everything a checkout needs</h2>
-              <p>No token accounts, no swap routing, no reconciliation spreadsheets.</p>
+              <h2 id="dev-h">Everything you need to build payments</h2>
+              <p>
+                From a simple checkout button to a fully customized payment experience. Simple integrations, powerful possibilities.
+              </p>
             </div>
             <div className="feature-grid">
-              {FEATURES.map((f) => (
-                <div className="feature-card" key={f.title}>
-                  <div className="icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9.5l4 4L15 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </div>
+              {DEV_TOOLS.map((f) => (
+                <Link className="feature-card feature-link" href={f.href} key={f.title}>
+                  <div className="icon" aria-hidden="true"><Check /></div>
                   <h3>{f.title}</h3>
                   <p>{f.body}</p>
-                </div>
+                </Link>
               ))}
             </div>
-          </div>
-        </section>
 
-        <section className="section" aria-labelledby="how-h">
-          <div className="site-main">
-            <div className="section-head">
-              <h2 id="how-h">How it works</h2>
-              <p>Three calls, one webhook.</p>
-            </div>
-            <div className="steps">
-              {STEPS.map((s, i) => (
-                <div className="step" key={i}>
-                  <h3>{s.title}</h3>
-                  <p>{s.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section" aria-labelledby="code-h">
-          <div className="site-main">
-            <div className="section-head left">
-              <h2 id="code-h">Three lines to start</h2>
-              <p>Server-side SDK, or a plain REST call — your choice.</p>
-            </div>
-            <div className="code-section-inner">
+            <div className="code-section-inner" style={{ marginTop: 40 }}>
               <div className="code-window">
                 <div className="code-window-bar">
                   <span className="code-window-dot" /><span className="code-window-dot" /><span className="code-window-dot" />
@@ -188,31 +217,91 @@ const { checkoutUrl } = await client.sessions.create({ amount: "19.99" });
 // redirect your customer to checkoutUrl`}</pre>
               </div>
               <ul className="code-checklist">
-                <li>
-                  <span className="num">1</span>
-                  <div><strong>Create a session</strong><span>One call, an amount, done. No token accounts or chain plumbing to set up first.</span></div>
-                </li>
-                <li>
-                  <span className="num">2</span>
-                  <div><strong>Redirect your customer</strong><span>They land on a hosted page that already knows the amount and your webhook config.</span></div>
-                </li>
-                <li>
-                  <span className="num">3</span>
-                  <div><strong>Get paid</strong><span>A signed webhook fires the moment it settles — funds are already at your address.</span></div>
-                </li>
+                {STEPS.map((s, i) => (
+                  <li key={s.title}>
+                    <span className="num">{i + 1}</span>
+                    <div><strong>{s.title}</strong><span>{s.body}</span></div>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
         </section>
 
+        <section className="section" aria-labelledby="settle-h">
+          <div className="site-main">
+            <div className="section-head">
+              <h2 id="settle-h">From payment to settlement, built for the onchain economy</h2>
+              <p>
+                ZelaPay is building payment infrastructure designed to connect digital wallets, merchants, and
+                applications through blockchain-powered settlement.
+              </p>
+            </div>
+            <ol className="settle-flow" aria-label="Payment flow">
+              {["Customer pays", "Verified onchain", "Settles in USDC", "You're notified"].map((s, i) => (
+                <li key={s}><span className="num">{i + 1}</span>{s}</li>
+              ))}
+            </ol>
+            <ul className="settle-points">
+              {SETTLEMENT.map((s) => <li key={s}>{s}</li>)}
+            </ul>
+          </div>
+        </section>
+
+        <section className="section" aria-labelledby="trust-h">
+          <div className="site-main">
+            <div className="section-head left">
+              <h2 id="trust-h">Built with control and transparency in mind</h2>
+              <p>Clear transactions, transparent payment status, and appropriate safeguards. <Link href="/docs/security">Security details →</Link></p>
+            </div>
+            <div className="feature-grid">
+              {TRUST.map((f) => (
+                <div className="feature-card" key={f.title}>
+                  <div className="icon" aria-hidden="true"><Check /></div>
+                  <h3>{f.title}</h3>
+                  <p>{f.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="section" aria-labelledby="roadmap-h">
+          <div className="site-main">
+            <div className="section-head">
+              <span className="eyebrow roadmap-eyebrow"><span className="dot" aria-hidden="true" />Coming soon</span>
+              <h2 id="roadmap-h">Building the future of USDC payments</h2>
+              <p>
+                We&rsquo;re starting with simple, reliable payments on Arc. The long-term vision: make USDC settlement
+                feel native — regardless of where the payment starts. Pay anywhere. Settle on Arc.
+              </p>
+            </div>
+            <div className="roadmap-grid">
+              {ROADMAP.map((r) => (
+                <div className="roadmap-card" key={r.title}>
+                  <h3>{r.title}</h3>
+                  <p>{r.body}</p>
+                </div>
+              ))}
+            </div>
+            <p className="disclaimer">
+              Future network integrations and settlement capabilities are under development and subject to
+              availability, technical support, and applicable requirements.
+            </p>
+          </div>
+        </section>
+
         <section className="site-main">
           <div className="cta-band">
-            <h2>Start accepting USDC today</h2>
+            <h2>Your business, ready for global payments</h2>
             <p>Create a merchant account and get your API keys in under a minute.</p>
             <div className="hero-cta">
               <Link className="btn btn-primary" href="/signup">Create a merchant account</Link>
               <Link className="btn" href="/docs">Browse the docs</Link>
             </div>
+            <p className="cross-link small muted">
+              Paying, not accepting? <a href={ZELAPAY_APP_URL}>Explore the ZelaPay App</a> — the wallet side of the same ecosystem.
+            </p>
           </div>
         </section>
       </main>

@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/dashboard/transactions", label: "Transactions" },
   { href: "/dashboard/payment-links", label: "Payment links" },
   { href: "/dashboard/api-keys", label: "API keys" },
+  { href: "/dashboard/mini-app", label: "Mini App" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 

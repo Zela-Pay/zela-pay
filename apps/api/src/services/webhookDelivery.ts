@@ -7,7 +7,7 @@
 
 import crypto from "node:crypto";
 import { nanoid } from "nanoid";
-import type { CheckoutSession, WebhookEvent, WebhookEventType } from "@zela-checkout/shared";
+import type { CheckoutSession, Payout, WebhookEvent, WebhookEventType } from "@zela-checkout/shared";
 import { query } from "../db/postgres.js";
 import { assertSafeWebhookUrl } from "./urlSafety.js";
 
@@ -18,13 +18,27 @@ export function signPayload(timestamp: string, body: string, secret: string): st
   return crypto.createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
 }
 
-export async function enqueueWebhook(session: CheckoutSession, type: WebhookEventType): Promise<void> {
+async function enqueueWebhookEvent<T>(params: {
+  merchantId: string;
+  sessionId?: string;
+  payoutId?: string;
+  type: WebhookEventType;
+  data: T;
+}): Promise<void> {
   const id = `evt_${nanoid(20)}`;
-  const event: WebhookEvent = { id, type, createdAt: new Date().toISOString(), data: session };
+  const event: WebhookEvent<T> = { id, type: params.type, createdAt: new Date().toISOString(), data: params.data };
   await query(
-    `INSERT INTO webhook_events (id, merchant_id, session_id, type, payload) VALUES ($1,$2,$3,$4,$5)`,
-    [id, session.merchantId, session.id, type, JSON.stringify(event)],
+    `INSERT INTO webhook_events (id, merchant_id, session_id, payout_id, type, payload) VALUES ($1,$2,$3,$4,$5,$6)`,
+    [id, params.merchantId, params.sessionId ?? null, params.payoutId ?? null, params.type, JSON.stringify(event)],
   );
+}
+
+export async function enqueueWebhook(session: CheckoutSession, type: WebhookEventType): Promise<void> {
+  await enqueueWebhookEvent({ merchantId: session.merchantId, sessionId: session.id, type, data: session });
+}
+
+export async function enqueuePayoutWebhook(payout: Payout): Promise<void> {
+  await enqueueWebhookEvent({ merchantId: payout.merchantId, payoutId: payout.id, type: "payout.completed", data: payout });
 }
 
 export async function deliverPendingWebhooks(): Promise<void> {

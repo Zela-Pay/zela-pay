@@ -10,7 +10,8 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { PGlite } from "@electric-sql/pglite";
-import { decodeFunctionData, encodeFunctionResult, parseUnits } from "viem";
+import { decodeFunctionData, encodeAbiParameters, encodeEventTopics, encodeFunctionResult, parseUnits } from "viem";
+import { ARC_USDC_ADDRESS_MAINNET } from "@zela-checkout/shared";
 
 const ARC_MAINNET_CHAIN_ID = "0x" + (5042).toString(16);
 const FAKE_TX_HASH = "0x" + "11".repeat(32);
@@ -24,6 +25,28 @@ const BALANCE_OF_ABI = [
 // balanceOf interface), lowercased. The refund tests add the deposit
 // address here once the session is created.
 const fundedAddresses = new Set<string>();
+
+// The payout tests set this before calling POST /v1/payouts, so
+// eth_getTransactionReceipt's mock below can return a matching (or
+// deliberately mismatched) ERC-20 Transfer log — every other test leaves
+// this empty, matching the receipt's real logs: [] default.
+let payoutTransferLog: { address: string; topics: readonly (string | string[] | null)[]; data: string } | null = null;
+
+const TRANSFER_EVENT_ABI = [
+  { type: "event", name: "Transfer", inputs: [{ name: "from", type: "address", indexed: true }, { name: "to", type: "address", indexed: true }, { name: "value", type: "uint256", indexed: false }] },
+] as const;
+
+function buildTransferLog(to: `0x${string}`, amountDecimal: string) {
+  return {
+    address: ARC_USDC_ADDRESS_MAINNET,
+    topics: encodeEventTopics({
+      abi: TRANSFER_EVENT_ABI,
+      eventName: "Transfer",
+      args: { from: "0x0000000000000000000000000000000000000099", to },
+    }),
+    data: encodeAbiParameters([{ type: "uint256" }], [parseUnits(amountDecimal as `${number}`, 6)]),
+  };
+}
 
 // ── fake Arc (EVM) JSON-RPC ─────────────────────────────────────────────────
 // Every account has a zero USDC balance except those in `fundedAddresses`,
@@ -79,7 +102,7 @@ const rpc = http.createServer((req, res) => {
           effectiveGasPrice: "0x3b9aca00",
           from: "0x" + "33".repeat(20),
           gasUsed: "0xfde8",
-          logs: [],
+          logs: payoutTransferLog ? [payoutTransferLog] : [],
           logsBloom: "0x" + "0".repeat(512),
           status: "0x1",
           to: "0x" + "44".repeat(20),
@@ -155,10 +178,23 @@ before(async () => {
 
   const { migrate } = await import("../db/migrate.js");
   const files = await migrate();
-  assert.equal(files.length, 12);
+  assert.equal(files.length, 13);
   // Re-running against an already-migrated database must be a no-op, not
   // re-run non-idempotent statements like 005's RENAME COLUMN.
   assert.deepEqual(await migrate(), []);
+
+  // public.merchant_identity_records lives in Zela-backend's own migrations
+  // (its 019_merchant_identity.sql), not this project's — real production
+  // reaches it via the shared Postgres instance's `public` schema, but this
+  // suite's isolated PGlite database only ever runs zela-checkout's own
+  // migrations. Stand in with the same shape so the merchant-id and payout
+  // routes (which query it directly) have something to hit.
+  await runQuery(`
+    CREATE TABLE IF NOT EXISTS public.merchant_identity_records (
+      handle TEXT PRIMARY KEY,
+      merchant_id TEXT NOT NULL UNIQUE
+    )
+  `);
 
   const { app } = await import("../app.js");
   apiServer = http.createServer(app);
@@ -577,6 +613,74 @@ test("a funded deposit settles: fee leg + merchant sweep, both idempotent on ret
   const rowAfter = (await mods.getSessionRow(settleSessionId))!;
   assert.equal(rowAfter.status, "settled");
   assert.equal(rowAfter.fee_tx_hash, feeTxHashBefore);
+});
+
+test("payouts: resolve rejects bad input, resolves a merchant handle, 404s for unknown", async () => {
+  const dashAuth = { authorization: `Bearer ${dash}` };
+  const auth = { authorization: `Bearer ${sk}` };
+
+  const claim = await json("PUT", "/v1/dashboard/merchant-id", { handle: "payouttestco" }, dashAuth);
+  assert.equal(claim.status, 200);
+
+  assert.equal((await json("POST", "/v1/payouts/resolve", { to: "" }, auth)).status, 400);
+  assert.equal((await json("POST", "/v1/payouts/resolve", { to: "nosuchhandle.zela.merchant" }, auth)).status, 404);
+
+  const ok = await json("POST", "/v1/payouts/resolve", { to: "payouttestco.zela.merchant" }, auth);
+  assert.equal(ok.status, 200);
+  const body = await ok.json();
+  // Not WALLET — an earlier test ("changing the settlement wallet...")
+  // already updated this merchant's settlement_wallet to 0x2222...2222.
+  assert.equal(body.walletAddress, "0x2222222222222222222222222222222222222222");
+  assert.equal(body.network, "arc-mainnet");
+
+  // A sandbox key can't resolve or report payouts at all.
+  const sandboxKey = await (await json("POST", "/v1/dashboard/api-keys", { isTest: true }, dashAuth)).json();
+  assert.equal(
+    (await json("POST", "/v1/payouts/resolve", { to: "payouttestco.zela.merchant" }, { authorization: `Bearer ${sandboxKey.secretKey}` })).status,
+    400,
+  );
+});
+
+test("payouts: report verifies the on-chain transfer and rejects mismatches", async () => {
+  const auth = { authorization: `Bearer ${sk}` };
+  // Settlement wallet for this merchant was changed earlier in the suite —
+  // see the "payouts: resolve" test's own note.
+  const currentWallet = "0x2222222222222222222222222222222222222222";
+  // Distinct per sub-case — payouts.tx_hash is UNIQUE, and reporting the
+  // same hash twice (even a failed report) is exactly what the final
+  // "can't report twice" assertion below tests on purpose.
+  const hash1 = "0x" + "aa".repeat(32);
+  const hash2 = "0x" + "bb".repeat(32);
+  const hash3 = "0x" + "cc".repeat(32);
+
+  // Wrong recipient — the log pays some other address.
+  payoutTransferLog = buildTransferLog("0x9999999999999999999999999999999999999999", "5");
+  const wrongRecipient = await json("POST", "/v1/payouts", { toIdentifier: "payouttestco.zela.merchant", txHash: hash1, amount: "5" }, auth);
+  assert.equal(wrongRecipient.status, 422);
+  assert.match((await wrongRecipient.json()).error, /recipient/i);
+
+  // Right recipient, wrong amount.
+  payoutTransferLog = buildTransferLog(currentWallet, "5");
+  const wrongAmount = await json("POST", "/v1/payouts", { toIdentifier: "payouttestco.zela.merchant", txHash: hash2, amount: "7.5" }, auth);
+  assert.equal(wrongAmount.status, 422);
+  assert.match((await wrongAmount.json()).error, /amount/i);
+
+  // Matches — recorded as verified, and a payout.completed webhook is enqueued.
+  payoutTransferLog = buildTransferLog(currentWallet, "5");
+  const good = await json("POST", "/v1/payouts", { toIdentifier: "payouttestco.zela.merchant", txHash: hash3, amount: "5" }, auth);
+  assert.equal(good.status, 201);
+  const { payout } = await good.json();
+  assert.equal(payout.status, "verified");
+  assert.equal(payout.toWallet, currentWallet);
+
+  const { rows } = await mods.query<{ type: string }>(`SELECT type FROM webhook_events WHERE payout_id = $1`, [payout.id]);
+  assert.deepEqual(rows.map((r) => r.type), ["payout.completed"]);
+
+  // The same tx hash can't be reported twice.
+  const twice = await json("POST", "/v1/payouts", { toIdentifier: "payouttestco.zela.merchant", txHash: hash3, amount: "5" }, auth);
+  assert.equal(twice.status, 409);
+
+  payoutTransferLog = null;
 });
 
 test("logout invalidates the session token", async () => {

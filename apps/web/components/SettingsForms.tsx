@@ -5,6 +5,7 @@ import { dashApi } from "./dashApi";
 import { CopyButton } from "./CopyButton";
 import { useSandboxMode } from "../lib/useSandboxMode";
 import { SecurityPanel } from "./SecurityPanel";
+import { MerchantIdCard } from "./MerchantIdCard";
 
 interface Props {
   name: string;
@@ -113,6 +114,8 @@ export function SettingsForms(p: Props) {
           <button className="btn btn-primary">Save</button>
         </form>
       </div>
+
+      <MerchantIdCard />
 
       <div className="card">
         <h2>Webhook</h2>

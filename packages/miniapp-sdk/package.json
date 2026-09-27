@@ -1,6 +1,6 @@
 {
-  "name": "@zela-checkout/sdk",
-  "version": "0.1.1",
+  "name": "@zela-checkout/miniapp-sdk",
+  "version": "0.1.0",
   "private": false,
   "publishConfig": {
     "access": "public"
@@ -15,6 +15,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
     }
   },
   "scripts": {
@@ -24,6 +28,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@zela-checkout/sdk": "workspace:^0.1.1",
     "@zela-checkout/shared": "workspace:^0.1.0"
   },
   "devDependencies": {

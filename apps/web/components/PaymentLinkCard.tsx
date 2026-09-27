@@ -132,7 +132,7 @@ export function PaymentLinkCard({ linkId }: { linkId: string }) {
             {busy ? "Starting…" : `Continue${amount ? ` — ${formatAmount(amount)} USDC` : ""}`}
           </button>
         </form>
-        <p className="powered">Secured by Zela Payment Rails</p>
+        <p className="powered">Secured by ZelaPay</p>
       </div>
     </div>
   );

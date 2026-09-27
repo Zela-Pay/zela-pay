@@ -1,4 +1,13 @@
 import express from "express";
+// Patches Express's router so a rejected Promise from an `async` route
+// handler reaches the error-handling middleware below, the same as a
+// synchronous throw already does. Without this (Express 4 has no built-in
+// support for it), an unhandled async rejection anywhere in a route just
+// leaves the request hanging with no response at all until the client's
+// own timeout — confirmed the hard way when a test hit exactly this and
+// hung for minutes instead of getting a 500. Must be imported after
+// `express` and before any router is defined.
+import "express-async-errors";
 import cors from "cors";
 import helmet from "helmet";
 import { env } from "./config/env.js";
@@ -8,6 +17,8 @@ import { dashboardRouter } from "./routes/dashboard.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 import { zelaRouter } from "./routes/zela.js";
 import { paymentLinksRouter } from "./routes/paymentLinks.js";
+import { payoutsRouter } from "./routes/payouts.js";
+import { miniAppsRouter } from "./routes/miniApps.js";
 
 export const app = express();
 if (env.TRUST_PROXY > 0) app.set("trust proxy", env.TRUST_PROXY);
@@ -47,3 +58,24 @@ app.use("/v1/dashboard", restrictedCors, dashboardRouter);
 app.use("/v1/webhooks", restrictedCors, webhooksRouter);
 app.use("/v1/zela", restrictedCors, zelaRouter);
 app.use("/v1/payment-links", restrictedCors, paymentLinksRouter);
+// Server-to-server only (a Mini App's own backend, secret-key auth) —
+// never called from a browser, but restrictedCors costs nothing and adds
+// defense-in-depth against the secret key ever being used from one.
+app.use("/v1/payouts", restrictedCors, payoutsRouter);
+// Public, unauthenticated, meant to be fetched broadly (the Zela app's own
+// Mini Apps directory tab) — no CORS restriction needed.
+app.use("/v1/mini-apps", miniAppsRouter);
+
+/**
+ * Last-resort catch-all — every route above is expected to send its own
+ * response, this only fires for a genuinely unhandled error (a thrown
+ * exception, or, thanks to express-async-errors above, a rejected Promise
+ * from an async handler). Always logs the real error server-side; the
+ * client only ever gets a generic message, never a stack trace or a raw
+ * DB/driver error string.
+ */
+app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(`[app] unhandled error on ${req.method} ${req.path}:`, err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: "Something went wrong on our end. Please try again." });
+});

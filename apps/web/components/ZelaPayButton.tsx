@@ -52,7 +52,7 @@ export function ZelaPayButton({ session }: { session: CheckoutSession }) {
         <a className="btn btn-primary btn-block" href={deepLink} style={{ fontSize: 16, padding: "14px 16px" }}>
           Open in Zela
         </a>
-        <p className="small muted" style={{ margin: 0 }}>Opens the Zela app with this payment ready to confirm.</p>
+        <p className="small muted" style={{ margin: 0 }}>Opens the ZelaPay App with this payment ready to confirm.</p>
         <div className="qr-fallback">
           <button type="button" className="link-btn" onClick={() => setShowQrOnMobile((v) => !v)}>
             {showQrOnMobile ? "Hide QR" : "Paying from another device? Show QR"}
@@ -66,7 +66,7 @@ export function ZelaPayButton({ session }: { session: CheckoutSession }) {
   return (
     <div className="qr-box">
       <QRCodeSVG value={deepLink} size={200} />
-      <p className="small muted" style={{ margin: 0 }}>Open the Zela app on your phone and scan this code.</p>
+      <p className="small muted" style={{ margin: 0 }}>Open the ZelaPay App on your phone and scan this code.</p>
     </div>
   );
 }

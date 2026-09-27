@@ -76,7 +76,7 @@ if (!walletConnectProjectId) {
 }
 
 export const wagmiConfig = getDefaultConfig({
-  appName: "Zela Payment Rails",
+  appName: "ZelaPay Checkout",
   projectId: walletConnectProjectId,
 
   chains: arcChains,

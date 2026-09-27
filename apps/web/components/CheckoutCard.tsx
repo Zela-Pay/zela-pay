@@ -18,7 +18,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 // already covers WalletConnect-QR pairing for most mobile wallets.
 type PayTab = "zela" | "wallet";
 const TABS: { id: PayTab; label: string }[] = [
-  { id: "zela", label: "Zela app" },
+  { id: "zela", label: "ZelaPay App" },
   { id: "wallet", label: "Wallet" },
 ];
 
@@ -206,7 +206,7 @@ export function CheckoutCard({ sessionId }: { sessionId: string }) {
           </>
         )}
 
-        <p className="powered">Secured by Zela Payment Rails</p>
+        <p className="powered">Secured by ZelaPay</p>
       </div>
     </div>
   );

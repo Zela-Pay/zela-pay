@@ -6,9 +6,9 @@ export default function PaymentMethods() {
       <h1>Payment methods</h1>
       <p>The hosted checkout page (and the widget, which embeds it) offers two ways to pay.</p>
 
-      <h2>Zela app</h2>
+      <h2>ZelaPay App</h2>
       <p>
-        On mobile, a deep link opens the Zela app directly to a pre-filled, PIN-confirmed payment — no address to
+        On mobile, a deep link opens the ZelaPay App directly to a pre-filled, PIN-confirmed payment — no address to
         copy, no manual entry. On desktop, the same link is shown as a QR code for the customer to scan with their
         phone.
       </p>

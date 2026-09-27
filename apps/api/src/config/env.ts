@@ -34,6 +34,13 @@ const envSchema = z.object({
   // services/firebaseAdmin.ts).
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
 
+  // Mini App payout resolution (Zela ID/email -> wallet) calls Zela-backend's
+  // internal, shared-secret-authed route directly — see services/
+  // payoutResolve.ts. Merchant-handle (".zela.merchant") resolution stays a
+  // local cross-schema query and needs neither of these.
+  ZELA_BACKEND_INTERNAL_URL: z.string().url().default("http://localhost:3040"),
+  INTERNAL_SERVICE_SECRET: z.string().min(1).optional(),
+
   CHECKOUT_WEB_ORIGIN: z.string().url(),
   ALLOW_PRIVATE_WEBHOOK_URLS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   // Number of reverse proxies in front of the API (0 = none). Needed so per-IP rate limits see real client IPs.

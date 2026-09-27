@@ -31,6 +31,10 @@ export const DOCS_NAV: DocGroup[] = [
     items: [{ href: "/docs/payment-links", label: "Payment links" }],
   },
   {
+    label: "Mini Apps",
+    items: [{ href: "/docs/miniapps", label: "Mini Apps" }],
+  },
+  {
     label: "Reference",
     items: [
       { href: "/docs/fees", label: "Fees" },

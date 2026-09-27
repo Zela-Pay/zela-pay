@@ -115,12 +115,39 @@ export interface CreatePaymentLinkResponse {
   linkUrl: string; // hosted page URL: https://checkout.zelapay.xyz/pay/link/<id>
 }
 
+// ─── Payouts (Mini Apps) ────────────────────────────────────────────────────
+// Always non-custodial: the Mini App's own backend signs and sends the
+// on-chain transfer itself. zela-checkout only resolves the recipient
+// beforehand (POST /v1/payouts/resolve) and verifies + records the
+// transfer afterward (POST /v1/payouts) — see apps/api/src/services/
+// payoutResolve.ts and payoutVerify.ts.
+
+export interface PayoutResolveResponse {
+  walletAddress: string;
+  network: ArcNetwork;
+  displayName: string | null;
+}
+
+export interface Payout {
+  id: string;
+  merchantId: string;
+  network: ArcNetwork;
+  toIdentifier: string;
+  toWallet: string;
+  amount: string;
+  txHash: string;
+  status: "pending" | "verified" | "failed";
+  verifyError: string | null;
+  createdAt: string;
+}
+
 // ─── Webhooks ──────────────────────────────────────────────────────────────
 
 export type WebhookEventType =
   | "checkout.session.completed"
   | "checkout.session.expired"
-  | "checkout.session.failed";
+  | "checkout.session.failed"
+  | "payout.completed";
 
 export interface WebhookEvent<T = CheckoutSession> {
   id: string;

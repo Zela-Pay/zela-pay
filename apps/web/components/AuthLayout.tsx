@@ -54,7 +54,7 @@ export function AuthLayout({ children, steps }: { children: ReactNode; steps?: A
             ))}
           </div>
         </div>
-        <p className="auth-foot small">Secured by Zela Payment Rails</p>
+        <p className="auth-foot small">Secured by ZelaPay</p>
       </aside>
 
       <div className="auth-form-side">

@@ -10,10 +10,10 @@ const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-displ
 
 export const metadata = {
   title: {
-    default: "Zela Payment Rails",
-    template: "%s · Zela Payment Rails",
+    default: "ZelaPay Checkout — Accept digital asset payments",
+    template: "%s · ZelaPay Checkout",
   },
-  description: "Payment infrastructure for native USDC on Arc. Checkout is the first rail — pay with the Zela app or any EVM wallet.",
+  description: "Accept digital asset payments through a single integration — checkout widget, hosted page, payment links, API and SDK. Customers pay with the ZelaPay App or other supported wallets; settles in USDC on Arc.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

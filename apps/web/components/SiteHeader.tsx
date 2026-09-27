@@ -7,6 +7,8 @@ import { Logo } from "./Logo";
 const LINKS = [
   { href: "/docs", label: "Docs" },
   { href: "/docs/fees", label: "Pricing" },
+  // The consumer side of the ecosystem, on the main site.
+  { href: "https://zelapay.xyz/app", label: "ZelaPay App" },
 ];
 
 function ArrowIcon() {
@@ -37,7 +39,7 @@ export function SiteHeader({ signedIn }: { signedIn: boolean }) {
     <header className="site-header">
       <div className="nav-pill">
         <Link href="/" className="wordmark" onClick={() => setOpen(false)}>
-          <Logo tagline={false} />
+          <Logo />
         </Link>
 
         <nav className="site-nav" aria-label="Primary">
