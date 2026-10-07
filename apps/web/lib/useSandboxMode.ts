@@ -17,9 +17,14 @@ const KEY = "zc_sandbox_mode";
  * This is only a UI default. Changing it does not modify anything that has
  * already been created. Each API key/payment link keeps the network it was
  * created for.
+ *
+ * The third tuple value, `ready`, is false until the stored preference has
+ * been read. Gate actions on it so nothing runs against the initial
+ * Sandbox default before localStorage has loaded.
  */
-export function useSandboxMode(): [boolean, (v: boolean) => void] {
+export function useSandboxMode(): [boolean, (v: boolean) => void, boolean] {
   const [sandbox, setSandboxState] = useState(true);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     try {
@@ -31,6 +36,8 @@ export function useSandboxMode(): [boolean, (v: boolean) => void] {
     } catch {
       // localStorage unavailable — stay on Sandbox.
     }
+
+    setReady(true);
   }, []);
 
   function setSandbox(v: boolean) {
@@ -43,5 +50,5 @@ export function useSandboxMode(): [boolean, (v: boolean) => void] {
     }
   }
 
-  return [sandbox, setSandbox];
+  return [sandbox, setSandbox, ready];
 }

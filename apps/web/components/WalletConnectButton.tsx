@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useAccount,
+  useDisconnect,
   useSwitchChain,
   useWriteContract,
   useWaitForTransactionReceipt,
@@ -18,44 +19,46 @@ import { humanizeChainError } from "../lib/humanizeChainError";
 /**
  * In-browser wallet payment path.
  *
- * RainbowKit handles wallet connection (desktop extensions such as
- * MetaMask/Rabby/Coinbase Wallet, or mobile wallets through WalletConnect).
- *
  * The checkout session is the source of truth for the Arc network:
- *
  *   arc-testnet -> chain ID 5042002
  *   arc-mainnet -> chain ID 5042
  *
- * The actual payment remains an ERC-20 USDC transfer() call.
+ * Every chain-aware hook below receives targetChain.id explicitly, so
+ * nothing depends on wagmi's default chain.
  */
 export function WalletConnectButton({ session }: { session: CheckoutSession }) {
+  const targetChain =
+    session.network === "arc-testnet" ? arcTestnet : arcMainnet;
+
   const { address, chainId, isConnected } = useAccount();
   const { openConnectModal, connectModalOpen } = useConnectModal();
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, isPending: sending } = useWriteContract();
+  const { disconnect } = useDisconnect();
 
   const [hash, setHash] = useState<`0x${string}` | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { isSuccess: confirmed } = useWaitForTransactionReceipt({
+  const { data: receipt } = useWaitForTransactionReceipt({
     hash: hash ?? undefined,
+    chainId: targetChain.id,
   });
+
+  const confirmed = receipt?.status === "success";
+  const reverted = receipt?.status === "reverted";
+
+  // Don't leave the wallet connected once the payment is done or failed.
+  useEffect(() => {
+    if (confirmed || reverted) disconnect();
+  }, [confirmed, reverted, disconnect]);
 
   async function pay() {
     setError(null);
 
     try {
-      // The checkout session determines which Arc network this payment
-      // belongs to. Never use a global environment network here.
-      const targetChain =
-        session.network === "arc-testnet" ? arcTestnet : arcMainnet;
-
-      // Make sure the connected wallet is on the same network as the
-      // checkout session before sending the ERC-20 USDC transfer.
+      // Make sure the wallet is on the session's network first.
       if (chainId !== targetChain.id) {
-        await switchChainAsync({
-          chainId: targetChain.id,
-        });
+        await switchChainAsync({ chainId: targetChain.id });
       }
 
       const amountRaw = parseUnits(
@@ -63,9 +66,8 @@ export function WalletConnectButton({ session }: { session: CheckoutSession }) {
         TOKEN_DECIMALS.USDC,
       );
 
-      // Keep using the ERC-20 USDC interface. The contract address is
-      // selected from the same session.network used above.
       const txHash = await writeContractAsync({
+        chainId: targetChain.id,
         address: usdcAddress(session.network),
         abi: USDC_TRANSFER_ABI,
         functionName: "transfer",
@@ -79,11 +81,29 @@ export function WalletConnectButton({ session }: { session: CheckoutSession }) {
     }
   }
 
+  function retry() {
+    setHash(null);
+    setError(null);
+  }
+
+  if (hash && reverted) {
+    return (
+      <div className="result">
+        <div className="icon bad">✕</div>
+        <div className="alert alert-bad">
+          The transaction failed on-chain. No payment was made.
+        </div>
+        <button className="btn btn-primary btn-block" onClick={retry}>
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (hash) {
     return (
       <div className="result">
         <div className="icon ok">✓</div>
-
         <p className="small muted" style={{ marginBottom: 0 }}>
           {confirmed
             ? "Payment confirmed. Waiting for it to settle…"
@@ -97,7 +117,6 @@ export function WalletConnectButton({ session }: { session: CheckoutSession }) {
     return (
       <div>
         {error && <div className="alert alert-bad">{error}</div>}
-
         <button
           className="btn btn-primary btn-block"
           onClick={() => openConnectModal?.()}
